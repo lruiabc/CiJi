@@ -77,7 +77,7 @@ CiJi/
 ├── CiJi.xcodeproj
 ├── CiJi/
 │   ├── CiJiApp.swift
-│   ├── Models/          # Word、WordGroup、GroupChoice（SwiftData）
+│   ├── Models/          # Word、WordGroup、GroupSelection（多对多分组）
 │   ├── Services/        # Google 查词、IPA 音标、原型还原、发音、设置、日志
 │   └── Views/           # 主界面、添加、批量导入、设置
 └── CiJiTests/           # Google 响应解析等单元测试
