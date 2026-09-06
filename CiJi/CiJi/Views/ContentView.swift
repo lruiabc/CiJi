@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var showAddSheet = false
     @State private var showBatchSheet = false
+    @State private var showQuizSheet = false
     @State private var showNewGroupAlert = false
     @State private var newGroupName = ""
     @State private var selectedWordIDs: Set<Word.ID> = []
@@ -50,6 +51,14 @@ struct ContentView: View {
         }
     }
 
+    private var quizPreferredScope: QuizSession.Scope {
+        switch selection {
+        case .all: return .all
+        case .ungrouped: return .ungrouped
+        case .group(let id): return .group(id)
+        }
+    }
+
     private var currentGroup: WordGroup? {
         if case .group(let id) = selection {
             return groups.first { $0.uuid == id }
@@ -71,6 +80,11 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showBatchSheet) {
             BatchImportSheet(preferredGroup: currentGroup)
+                .environmentObject(settings)
+                .environmentObject(pronunciation)
+        }
+        .sheet(isPresented: $showQuizSheet) {
+            QuizView(preferredScope: quizPreferredScope)
                 .environmentObject(settings)
                 .environmentObject(pronunciation)
         }
@@ -171,6 +185,11 @@ struct ContentView: View {
                             try? modelContext.save()
                         }
                         Divider()
+                        Button("练习此组") {
+                            selection = .group(group.uuid)
+                            showQuizSheet = true
+                        }
+                        Divider()
                         Button("删除分组", role: .destructive) {
                             deleteGroup(group)
                         }
@@ -233,6 +252,14 @@ struct ContentView: View {
                 Label("批量导入", systemImage: "square.and.arrow.down")
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
+
+            Button {
+                showQuizSheet = true
+            } label: {
+                Label("练习", systemImage: "rectangle.and.pencil.and.ellipsis")
+            }
+            .keyboardShortcut("p", modifiers: [.command])
+            .help("按分组练习：看英文，默写中文")
 
             if !selectedWordIDs.isEmpty {
                 if selectedWordIDs.count == 1, let word = selectedWords(from: selectedWordIDs).first {

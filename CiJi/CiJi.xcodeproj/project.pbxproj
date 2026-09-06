@@ -25,6 +25,10 @@
 		A1000000000000000000000B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* SettingsView.swift */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000C /* Assets.xcassets */; };
 		A1000000000000000000000D /* GoogleTranslateParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* GoogleTranslateParsingTests.swift */; };
+		A10000000000000000000016 /* QuizAnswerMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* QuizAnswerMatcher.swift */; };
+		A10000000000000000000017 /* QuizSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* QuizSession.swift */; };
+		A10000000000000000000018 /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* QuizView.swift */; };
+		A10000000000000000000019 /* QuizAnswerMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* QuizAnswerMatcherTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +63,10 @@
 		B1000000000000000000000E /* CiJi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CiJi.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000F /* CiJi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CiJi.entitlements; sourceTree = "<group>"; };
 		B10000000000000000000010 /* CiJiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CiJiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000016 /* QuizAnswerMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizAnswerMatcher.swift; sourceTree = "<group>"; };
+		B10000000000000000000017 /* QuizSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizSession.swift; sourceTree = "<group>"; };
+		B10000000000000000000018 /* QuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizView.swift; sourceTree = "<group>"; };
+		B10000000000000000000019 /* QuizAnswerMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizAnswerMatcherTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,6 +128,8 @@
 				B10000000000000000000014 /* IPAPhoneticService.swift */,
 				B10000000000000000000006 /* PronunciationService.swift */,
 				B10000000000000000000012 /* AppLog.swift */,
+				B10000000000000000000017 /* QuizSession.swift */,
+				B10000000000000000000016 /* QuizAnswerMatcher.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -131,6 +141,7 @@
 				B10000000000000000000009 /* AddWordSheet.swift */,
 				B1000000000000000000000A /* BatchImportSheet.swift */,
 				B1000000000000000000000B /* SettingsView.swift */,
+				B10000000000000000000018 /* QuizView.swift */,
 				G10000000000000000000006 /* Components */,
 			);
 			path = Views;
@@ -149,6 +160,7 @@
 			isa = PBXGroup;
 			children = (
 				B1000000000000000000000D /* GoogleTranslateParsingTests.swift */,
+				B10000000000000000000019 /* QuizAnswerMatcherTests.swift */,
 			);
 			path = CiJiTests;
 			sourceTree = "<group>";
@@ -259,6 +271,8 @@
 				A10000000000000000000003 /* WordGroup.swift in Sources */,
 				A10000000000000000000011 /* GroupSelection.swift in Sources */,
 				A10000000000000000000012 /* AppLog.swift in Sources */,
+				A10000000000000000000017 /* QuizSession.swift in Sources */,
+				A10000000000000000000016 /* QuizAnswerMatcher.swift in Sources */,
 				A10000000000000000000004 /* SettingsStore.swift in Sources */,
 				A10000000000000000000005 /* GoogleTranslateService.swift in Sources */,
 				A10000000000000000000013 /* EnglishLemmatizer.swift in Sources */,
@@ -270,6 +284,7 @@
 				A10000000000000000000009 /* AddWordSheet.swift in Sources */,
 				A1000000000000000000000A /* BatchImportSheet.swift in Sources */,
 				A1000000000000000000000B /* SettingsView.swift in Sources */,
+				A10000000000000000000018 /* QuizView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -278,6 +293,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000000000000000000000D /* GoogleTranslateParsingTests.swift in Sources */,
+				A10000000000000000000019 /* QuizAnswerMatcherTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
