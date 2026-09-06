@@ -15,6 +15,7 @@
 		A10000000000000000000004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* SettingsStore.swift */; };
 		A10000000000000000000005 /* GoogleTranslateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* GoogleTranslateService.swift */; };
 		A10000000000000000000013 /* EnglishLemmatizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* EnglishLemmatizer.swift */; };
+		A10000000000000000000014 /* IPAPhoneticService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* IPAPhoneticService.swift */; };
 		A10000000000000000000006 /* PronunciationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* PronunciationService.swift */; };
 		A10000000000000000000007 /* SpeakButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* SpeakButton.swift */; };
 		A10000000000000000000008 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* ContentView.swift */; };
@@ -44,6 +45,7 @@
 		B10000000000000000000004 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		B10000000000000000000005 /* GoogleTranslateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleTranslateService.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* EnglishLemmatizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnglishLemmatizer.swift; sourceTree = "<group>"; };
+		B10000000000000000000014 /* IPAPhoneticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPAPhoneticService.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* PronunciationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PronunciationService.swift; sourceTree = "<group>"; };
 		B10000000000000000000007 /* SpeakButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakButton.swift; sourceTree = "<group>"; };
 		B10000000000000000000008 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -113,6 +115,7 @@
 				B10000000000000000000004 /* SettingsStore.swift */,
 				B10000000000000000000005 /* GoogleTranslateService.swift */,
 				B10000000000000000000013 /* EnglishLemmatizer.swift */,
+				B10000000000000000000014 /* IPAPhoneticService.swift */,
 				B10000000000000000000006 /* PronunciationService.swift */,
 				B10000000000000000000012 /* AppLog.swift */,
 			);
@@ -256,6 +259,7 @@
 				A10000000000000000000004 /* SettingsStore.swift in Sources */,
 				A10000000000000000000005 /* GoogleTranslateService.swift in Sources */,
 				A10000000000000000000013 /* EnglishLemmatizer.swift in Sources */,
+				A10000000000000000000014 /* IPAPhoneticService.swift in Sources */,
 				A10000000000000000000006 /* PronunciationService.swift in Sources */,
 				A10000000000000000000007 /* SpeakButton.swift in Sources */,
 				A10000000000000000000008 /* ContentView.swift in Sources */,

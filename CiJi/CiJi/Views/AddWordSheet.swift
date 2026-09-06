@@ -58,7 +58,7 @@ struct AddWordSheet: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        LabeledContent("音标") {
+                        LabeledContent("音标 (IPA)") {
                             Text(preview.phonetic.isEmpty ? "—" : preview.phonetic)
                                 .font(.body.monospaced())
                         }
@@ -171,7 +171,7 @@ struct AddWordSheet: View {
                 infoMessage = [infoMessage, mockNote].compactMap { $0 }.joined(separator: " ")
             }
             if result.phonetic.isEmpty {
-                let phNote = "未找到音标（部分词 Google 不返回读音）。"
+                let phNote = "未找到 IPA 音标（词典源暂无该词读音）。"
                 infoMessage = [infoMessage, phNote].compactMap { $0 }.joined(separator: " ")
             }
         } catch {

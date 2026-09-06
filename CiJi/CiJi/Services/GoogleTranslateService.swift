@@ -40,7 +40,7 @@ enum DictionaryServiceError: LocalizedError, Sendable {
     }
 }
 
-/// Google Translate free endpoints + English lemmatization + phonetic enrichment.
+/// Google Translate free endpoints + English lemmatization + IPA enrichment.
 final class GoogleTranslateService: @unchecked Sendable {
     private let allowMockFallback: Bool
     private let session: URLSession
@@ -124,54 +124,10 @@ final class GoogleTranslateService: @unchecked Sendable {
         return simple
     }
 
-    // MARK: - Phonetic (en → en + dt=rm)
+    // MARK: - Phonetic (IPA / DJ)
 
     private func fetchPhonetic(for lemma: String) async throws -> String {
-        var components = URLComponents(string: "https://clients5.google.com/translate_a/single")
-        components?.queryItems = [
-            URLQueryItem(name: "client", value: "dict-chrome-ex"),
-            URLQueryItem(name: "sl", value: "en"),
-            URLQueryItem(name: "tl", value: "en"),
-            URLQueryItem(name: "dt", value: "t"),
-            URLQueryItem(name: "dt", value: "rm"),
-            URLQueryItem(name: "ie", value: "UTF-8"),
-            URLQueryItem(name: "oe", value: "UTF-8"),
-            URLQueryItem(name: "q", value: lemma),
-        ]
-        guard let url = components?.url else { return "" }
-        let data = try await perform(url: url, query: lemma)
-        return Self.extractPhonetic(from: data, query: lemma)
-    }
-
-    static func extractPhonetic(from data: Data, query: String) -> String {
-        guard let json = try? JSONSerialization.jsonObject(with: data),
-              let root = json as? [Any],
-              let sentences = root[safe: 0] as? [Any] else { return "" }
-
-        let phoneticChars = CharacterSet(charactersIn: "ˈˌəɪæɑɒɔʊʌɛθðŋʃʒːāēīōūǎǐǒǔɡ()")
-        var found: String?
-
-        for item in sentences {
-            guard let row = item as? [Any] else { continue }
-            for value in row {
-                guard let text = value as? String else { continue }
-                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { continue }
-                if trimmed.lowercased() == query.lowercased() { continue }
-                // Prefer strings that look like pronunciation / IPA-ish readings.
-                if trimmed.unicodeScalars.contains(where: { phoneticChars.contains($0) })
-                    || trimmed.contains("'")
-                    || trimmed.contains("ˈ") {
-                    found = trimmed
-                    break
-                }
-            }
-            if found != nil { break }
-        }
-
-        guard let raw = found else { return "" }
-        let bare = raw.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return "/\(bare)/"
+        await IPAPhoneticService.fetchIPA(for: lemma, session: session, timeout: requestTimeout)
     }
 
     // MARK: - Network helpers
