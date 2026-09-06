@@ -257,12 +257,13 @@ struct QuizView: View {
                 .padding(.top, 6)
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .center, spacing: 8) {
                     Image(systemName: correct ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.body)
                         .foregroundStyle(correct ? Color.green : Color.red)
                     Text(prompt.answer.isEmpty ? "（未作答）" : prompt.answer)
                         .font(.body)
-                        .foregroundStyle(correct ? .primary : .red)
+                        .foregroundStyle(correct ? Color.primary : Color.red)
                 }
 
                 if !correct {
