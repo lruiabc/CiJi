@@ -5,6 +5,7 @@ struct AddWordSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var pronunciation: PronunciationService
 
     @Query(sort: \WordGroup.sortOrder) private var groups: [WordGroup]
     @Query private var existingWords: [Word]
@@ -50,7 +51,7 @@ struct AddWordSheet: View {
                             HStack(spacing: 8) {
                                 Text(preview.english)
                                     .font(.body.weight(.semibold))
-                                SpeakButton(word: preview.english, size: 14, helpText: "试听发音")
+                                SpeakButton(word: preview.english, size: 14, helpText: "试听发音", pronunciation: pronunciation, settings: settings)
                             }
                         }
                         if preview.wasLemmatized, let inputForm = preview.inputForm {

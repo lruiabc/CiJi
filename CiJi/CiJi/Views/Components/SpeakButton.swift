@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// 可点击的发音按钮：播放 Google TTS 发音（美音/英音由设置决定）。
+/// Clickable pronunciation button. Prefer passing services explicitly so sheets
+/// on macOS cannot crash from a missing `environmentObject`.
 struct SpeakButton: View {
     let word: String
     var size: CGFloat = 14
     var helpText: String = "播放发音"
 
-    @EnvironmentObject private var pronunciation: PronunciationService
-    @EnvironmentObject private var settings: SettingsStore
+    @ObservedObject var pronunciation: PronunciationService
+    @ObservedObject var settings: SettingsStore
 
     private var active: Bool {
         pronunciation.isPlaying(word)
@@ -27,5 +28,25 @@ struct SpeakButton: View {
         .help(helpText)
         .accessibilityLabel(helpText)
         .disabled(word.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+}
+
+/// Convenience for views that already hold both services in the environment.
+struct SpeakButtonEnv: View {
+    let word: String
+    var size: CGFloat = 14
+    var helpText: String = "播放发音"
+
+    @EnvironmentObject private var pronunciation: PronunciationService
+    @EnvironmentObject private var settings: SettingsStore
+
+    var body: some View {
+        SpeakButton(
+            word: word,
+            size: size,
+            helpText: helpText,
+            pronunciation: pronunciation,
+            settings: settings
+        )
     }
 }

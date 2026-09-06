@@ -25,6 +25,7 @@ struct BatchImportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var pronunciation: PronunciationService
 
     @Query(sort: \WordGroup.sortOrder) private var groups: [WordGroup]
     @Query private var existingWords: [Word]
@@ -178,7 +179,7 @@ struct BatchImportSheet: View {
 
             Table(drafts) {
                 TableColumn("发音") { draft in
-                    SpeakButton(word: draft.english, size: 12)
+                    SpeakButton(word: draft.english, size: 12, pronunciation: pronunciation, settings: settings)
                         .disabled(draft.status != .ready)
                 }
                 .width(44)

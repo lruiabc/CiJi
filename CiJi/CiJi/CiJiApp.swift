@@ -46,6 +46,7 @@ struct CiJiApp: App {
         Settings {
             SettingsView()
                 .environmentObject(settings)
+                .environmentObject(pronunciation)
                 .frame(width: 440, height: 320)
         }
     }

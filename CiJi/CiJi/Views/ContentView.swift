@@ -66,9 +66,13 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             AddWordSheet(preferredGroup: currentGroup)
+                .environmentObject(settings)
+                .environmentObject(pronunciation)
         }
         .sheet(isPresented: $showBatchSheet) {
             BatchImportSheet(preferredGroup: currentGroup)
+                .environmentObject(settings)
+                .environmentObject(pronunciation)
         }
         .alert("新建分组", isPresented: $showNewGroupAlert) {
             TextField("分组名称，例如：第一组", text: $newGroupName)
@@ -314,7 +318,7 @@ struct ContentView: View {
     private var wordTable: some View {
         Table(visibleWords, selection: $selectedWordIDs) {
             TableColumn("发音") { word in
-                SpeakButton(word: word.english, size: 13)
+                SpeakButton(word: word.english, size: 13, pronunciation: pronunciation, settings: settings)
             }
             .width(min: 44, ideal: 52, max: 64)
 
