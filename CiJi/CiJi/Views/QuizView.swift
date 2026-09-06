@@ -7,366 +7,435 @@ struct QuizView: View {
     @EnvironmentObject private var pronunciation: PronunciationService
 
     @Query(sort: \WordGroup.sortOrder) private var groups: [WordGroup]
-    @Query(sort: \Word.createdAt, order: .reverse) private var allWords: [Word]
-
-    var preferredScope: QuizSession.Scope = .all
+    @Query(sort: \Word.createdAt, order: .forward) private var allWords: [Word]
 
     @StateObject private var session = QuizSession()
     @State private var setupError: String?
     @FocusState private var focusedPromptID: UUID?
 
+    let preferredScope: QuizSession.Scope
+
     var body: some View {
         NavigationStack {
             Group {
                 switch session.phase {
-                case .setup: setupPhase
-                case .practicing: practicePhase
-                case .summary: summaryPhase
+                case .setup:
+                    setupForm
+                case .practicing:
+                    practicingView
+                case .summary:
+                    summaryView
                 }
             }
-            .navigationTitle(navTitle)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(session.phase == .setup ? "关闭" : "结束") {
-                        switch session.phase {
-                        case .setup: dismiss()
-                        case .practicing, .summary: session.backToSetup()
-                        }
-                    }
-                }
-            }
+            .navigationTitle(navigationTitle)
+            #if os(macOS)
+            .navigationSubtitle(session.phase == .setup ? "英译中练习" : session.progressLabel)
+            #endif
+            .toolbar { toolbarContent }
             .onAppear {
                 if session.phase == .setup {
                     session.scope = preferredScope
                 }
             }
         }
-        .frame(minWidth: 720, minHeight: 560)
+        .frame(minWidth: 760, minHeight: 560)
     }
 
-    private var navTitle: String {
+    private var navigationTitle: String {
         switch session.phase {
-        case .setup: return "开始练习"
-        case .practicing: return "练习中 \(session.progressLabel)"
-        case .summary: return "本轮结果"
+        case .setup: "练习"
+        case .practicing: session.pageChecked ? "本页对照" : "答题"
+        case .summary: "本轮结果"
         }
     }
 
-    // MARK: Setup
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("关闭") { dismiss() }
+        }
 
-    private var setupPhase: some View {
-        Form {
-            Section {
-                Text("每页同时出示多个英文单词。写出中文释义即可；一词多义时，答对其中任何一个意思就算正确。")
-                    .foregroundStyle(.secondary)
-                    .font(.callout)
+        if session.phase == .practicing, !session.pageChecked {
+            ToolbarItem(placement: .automatic) {
+                Toggle(isOn: $session.liveCheckEnabled) {
+                    Text("实时校验")
+                }
+                .toggleStyle(.checkbox)
+                .help("开启后，输入释义时可即时对照，无需先点提交")
             }
 
+            ToolbarItem(placement: .confirmationAction) {
+                Button("提交本页") { session.revealPage() }
+                    .keyboardShortcut(.return, modifiers: [.command])
+            }
+        }
+
+        if session.phase == .practicing, session.pageChecked {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(session.isLastPage ? "查看结果" : "下一页") {
+                    session.goNextPage()
+                }
+                .keyboardShortcut(.return, modifiers: [.command])
+            }
+        }
+
+        if session.phase == .summary {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("再练一轮") {
+                    setupError = session.restartSameSettings(allWords: allWords, groups: groups)
+                }
+            }
+        }
+    }
+
+    // MARK: - Setup
+
+    private var setupForm: some View {
+        Form {
             Section("练习范围") {
                 Picker("范围", selection: $session.scope) {
-                    Text("全部单词（\(wordCount(for: .all))）").tag(QuizSession.Scope.all)
-                    Text("未分组（\(wordCount(for: .ungrouped))）").tag(QuizSession.Scope.ungrouped)
-                    ForEach(groups, id: \.uuid) { group in
-                        Text("\(group.name)（\(wordCount(for: .group(group.uuid)))）")
+                    Text("全部单词（\(session.availableCount(for: .all, allWords: allWords, groups: groups))）")
+                        .tag(QuizSession.Scope.all)
+                    Text("未分组（\(session.availableCount(for: .ungrouped, allWords: allWords, groups: groups))）")
+                        .tag(QuizSession.Scope.ungrouped)
+                    ForEach(groups) { group in
+                        Text("\(group.name)（\(session.availableCount(for: .group(group.uuid), allWords: allWords, groups: groups))）")
                             .tag(QuizSession.Scope.group(group.uuid))
                     }
                 }
-                .labelsHidden()
-                .pickerStyle(.radioGroup)
-            }
 
-            Section("出题方式") {
-                Picker("顺序", selection: $session.orderMode) {
+                Picker("出题顺序", selection: $session.orderMode) {
                     ForEach(QuizSession.OrderMode.allCases) { mode in
                         Text(mode.title).tag(mode)
                     }
                 }
-                .pickerStyle(.segmented)
 
-                Picker("每页单词数", selection: $session.pageSize) {
-                    Text("3 个").tag(3)
-                    Text("5 个").tag(5)
-                    Text("8 个").tag(8)
-                    Text("10 个").tag(10)
+                Stepper(value: $session.pageSize, in: 1...12) {
+                    Text("每页题数：\(session.pageSize)")
                 }
 
-                Picker("本轮总题量", selection: $session.limit) {
-                    Text("全部").tag(0)
-                    Text("10 词").tag(10)
-                    Text("20 词").tag(20)
-                    Text("30 词").tag(30)
+                Stepper(value: $session.limit, in: 0...500) {
+                    Text(session.limit == 0 ? "本轮题数：全部" : "本轮最多：\(session.limit) 词")
                 }
+            }
+
+            Section("校验方式") {
+                Toggle("实时校验（输入时即可对照，不必先提交）", isOn: $session.liveCheckEnabled)
+                Text(
+                    session.liveCheckEnabled
+                        ? "右侧会随输入显示对/错提示；仍可随时点「提交本页」写入成绩并看完整对照。"
+                        : "关闭后先专心作答，点「提交本页」后再显示对错。"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             if let setupError {
-                Section { Text(setupError).foregroundStyle(.red) }
+                Section {
+                    Text(setupError)
+                        .foregroundStyle(.red)
+                }
             }
 
             Section {
-                Button {
-                    if let error = session.start(allWords: allWords, groups: groups) {
-                        setupError = error
-                    } else {
-                        setupError = nil
-                        focusFirstEmpty()
-                    }
-                } label: {
-                    Label("开始练习", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
+                Button("开始练习") {
+                    setupError = session.start(allWords: allWords, groups: groups)
                 }
-                .disabled(wordCount(for: session.scope) == 0)
-                .keyboardShortcut(.return, modifiers: [.command])
+                .keyboardShortcut(.defaultAction)
             }
         }
         .formStyle(.grouped)
         .padding()
     }
 
-    // MARK: Practice
+    // MARK: - Practicing
 
-    private var practicePhase: some View {
+    private var practicingView: some View {
         VStack(spacing: 0) {
-            ProgressView(
-                value: Double(min(session.pageIndex + (session.pageChecked ? 1 : 0), max(session.totalPages, 1))),
-                total: Double(max(session.totalPages, 1))
-            )
-            .padding(.horizontal, 24)
-            .padding(.top, 16)
-
-            HStack {
-                Text(session.progressLabel)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("已答对 \(session.correctCount) / \(session.totalAnswered)")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+            progressHeader
+            columnHeader
+            Divider()
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(session.prompts.enumerated()), id: \.element.id) { index, prompt in
+                        if session.pageChecked {
+                            revealedRow(prompt: prompt)
+                        } else {
+                            answerRow(index: index, prompt: prompt)
+                        }
+                        Divider()
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 8)
-
-            if session.prompts.isEmpty {
-                ContentUnavailableView("没有题目", systemImage: "questionmark.circle")
-            } else {
-                ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach($session.prompts) { $prompt in
-                            promptCard(prompt: $prompt)
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 12)
-                }
-
+            if !session.pageChecked {
                 Divider()
-
-                HStack(spacing: 12) {
-                    if !session.pageChecked {
-                        Button("不会，看本页答案") { session.revealPage() }
-                        Button("提交本页") { session.checkPage() }
-                            .buttonStyle(.borderedProminent)
-                            .keyboardShortcut(.defaultAction)
-                    } else {
-                        Button(session.isLastPage ? "查看结果" : "下一页") {
-                            session.goNextPage()
-                            focusFirstEmpty()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .keyboardShortcut(.defaultAction)
-                    }
-                }
-                .padding(16)
+                footerHint
             }
         }
-        .onAppear(perform: focusFirstEmpty)
     }
 
-    private func promptCard(prompt: Binding<QuizSession.Prompt>) -> some View {
-        let value = prompt.wrappedValue
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(value.item.english)
-                    .font(.title2.weight(.semibold))
-                    .textSelection(.enabled)
-                SpeakButton(
-                    word: value.item.english,
-                    size: 14,
-                    helpText: "听发音",
-                    pronunciation: pronunciation,
-                    settings: settings
-                )
-                if !value.item.phonetic.isEmpty {
-                    Text(value.item.phonetic)
-                        .font(.callout.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-                if let feedback = value.feedback {
-                    Image(systemName: isCorrect(feedback) ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(isCorrect(feedback) ? Color.green : Color.red)
-                }
-            }
-
-            TextField("中文释义（任一义项即可）", text: prompt.answer)
-                .textFieldStyle(.roundedBorder)
-                .focused($focusedPromptID, equals: value.id)
-                .disabled(session.pageChecked)
-                .onSubmit { focusNext(after: value.id) }
-
-            if let feedback = value.feedback {
-                feedbackText(feedback, fullExpected: value.item.chinese, userAnswer: value.answer)
+    private var progressHeader: some View {
+        HStack {
+            Text(session.progressLabel)
+                .font(.subheadline.weight(.medium))
+            Spacer()
+            if session.liveCheckEnabled, !session.pageChecked {
+                Label("实时校验已开", systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(12)
-        .background(cardBackground(value.feedback), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(.bar)
+    }
+
+    private var columnHeader: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text("英文")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(width: 20)
+
+            Text("中文释义")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Color.clear.frame(width: 28)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+    }
+
+    private func answerRow(index: Int, prompt: QuizSession.Prompt) -> some View {
+        let live: QuizLiveStatus = session.liveCheckEnabled
+            ? QuizSession.liveStatus(answer: prompt.answer, expectedChinese: prompt.item.chinese)
+            : .idle
+
+        return HStack(alignment: .center, spacing: 16) {
+            englishColumn(item: prompt.item)
+
+            Image(systemName: "arrow.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(width: 20)
+
+            HStack(spacing: 8) {
+                TextField("输入中文释义", text: answerBinding(at: index))
+                    .textFieldStyle(.roundedBorder)
+                    .focused($focusedPromptID, equals: prompt.id)
+                    .onSubmit { session.revealPage() }
+
+                liveBadge(live)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 10)
+    }
+
+    private func revealedRow(prompt: QuizSession.Prompt) -> some View {
+        let correct = prompt.feedback.map { feedback in
+            if case .correct = feedback { return true }
+            return false
+        } ?? false
+
+        return HStack(alignment: .top, spacing: 16) {
+            englishColumn(item: prompt.item)
+
+            Image(systemName: "arrow.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(width: 20)
+                .padding(.top, 6)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: correct ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundStyle(correct ? Color.green : Color.red)
+                    Text(prompt.answer.isEmpty ? "（未作答）" : prompt.answer)
+                        .font(.body)
+                        .foregroundStyle(correct ? .primary : .red)
+                }
+
+                if !correct {
+                    Text("参考：\(prompt.item.chinese)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                } else if case .correct(let matched)? = prompt.feedback, let matched, !matched.isEmpty {
+                    Text("匹配：\(matched)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 10)
+    }
+
+    private func englishColumn(item: QuizSession.Item) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Text(item.english)
+                    .font(.title3.weight(.semibold))
+                    .textSelection(.enabled)
+                SpeakButton(word: item.english, pronunciation: pronunciation, settings: settings)
+            }
+            if !item.phonetic.isEmpty {
+                Text(item.phonetic)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
-    private func feedbackText(
-        _ feedback: QuizSession.Prompt.Feedback,
-        fullExpected: String,
-        userAnswer: String
-    ) -> some View {
-        switch feedback {
-        case .correct(let matched):
-            Text(matched.map { "正确 · 匹配「\($0)」" } ?? "正确")
-                .font(.caption)
-                .foregroundStyle(.green)
-            Text("完整释义：\(fullExpected)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-        case .incorrect(let expected):
-            if !userAnswer.isEmpty {
-                Text("你的回答：\(userAnswer)")
-                    .font(.caption)
+    private func liveBadge(_ status: QuizLiveStatus) -> some View {
+        Group {
+            switch status {
+            case .idle:
+                Color.clear.frame(width: 28, height: 28)
+            case .empty:
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(.tertiary)
+                    .help("尚未输入")
+            case .correct:
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .help("已匹配某一义项")
+            case .incorrect:
+                Image(systemName: "xmark.circle")
                     .foregroundStyle(.orange)
+                    .help("尚未匹配，可继续改")
             }
-            Text("参考释义：\(expected)")
+        }
+        .font(.title3)
+        .frame(width: 28, height: 28)
+        .accessibilityLabel(status.accessibilityLabel)
+    }
+
+    private var footerHint: some View {
+        Text(
+            session.liveCheckEnabled
+                ? "左侧英文 · 右侧输入中文。实时校验已开：对上任一义项即显示 ✓。⌘↩ 提交本页。"
+                : "左侧英文 · 右侧输入中文。提交后才显示对错。⌘↩ 提交本页。"
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(.bar)
+    }
+
+    // MARK: - Summary
+
+    private var summaryView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 20) {
+                scoreChip(title: "正确", value: session.correctCount, tint: .green)
+                scoreChip(title: "错误", value: session.wrongCount, tint: .red)
+                scoreChip(
+                    title: "正确率",
+                    valueText: "\(Int((session.accuracy * 100).rounded()))%",
+                    tint: .accentColor
+                )
+            }
+
+            if session.wrongItems.isEmpty {
+                ContentUnavailableView(
+                    "全部正确",
+                    systemImage: "checkmark.seal.fill",
+                    description: Text("本轮 \(session.totalCount) 词全部答对。")
+                )
+                .frame(maxHeight: .infinity)
+            } else {
+                Text("错题回顾")
+                    .font(.headline)
+
+                List(session.wrongItems) { item in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(item.item.english).font(.headline)
+                            SpeakButton(
+                                word: item.item.english,
+                                pronunciation: pronunciation,
+                                settings: settings
+                            )
+                            Spacer()
+                            Text("你的答案：\(item.userAnswer.isEmpty ? "（空）" : item.userAnswer)")
+                                .foregroundStyle(.red)
+                        }
+                        Text("参考：\(item.item.chinese)")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            HStack {
+                Button("调整设置") { session.backToSetup() }
+                Spacer()
+                Button("完成") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+    }
+
+    private func scoreChip(title: String, value: Int, tint: Color) -> some View {
+        scoreChip(title: title, valueText: "\(value)", tint: tint)
+    }
+
+    private func scoreChip(title: String, valueText: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .textSelection(.enabled)
+            Text(valueText)
+                .font(.title.weight(.semibold))
+                .foregroundStyle(tint)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
     }
 
-    private func isCorrect(_ feedback: QuizSession.Prompt.Feedback) -> Bool {
-        if case .correct = feedback { return true }
-        return false
-    }
-
-    private func cardBackground(_ feedback: QuizSession.Prompt.Feedback?) -> Color {
-        switch feedback {
-        case .correct: return Color.green.opacity(0.08)
-        case .incorrect: return Color.red.opacity(0.08)
-        case nil: return Color(nsColor: .controlBackgroundColor)
-        }
-    }
-
-    // MARK: Summary
-
-    private var summaryPhase: some View {
-        VStack(spacing: 20) {
-            Spacer(minLength: 8)
-            Image(systemName: summaryIcon)
-                .font(.system(size: 48))
-                .foregroundStyle(summaryColor)
-            Text("\(session.correctCount) / \(session.totalAnswered)")
-                .font(.system(size: 40, weight: .bold, design: .rounded))
-            Text(summaryMessage)
-                .font(.title3)
-                .foregroundStyle(.secondary)
-
-            List {
-                ForEach(session.results) { result in
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: result.isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundStyle(result.isCorrect ? Color.green : Color.red)
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(result.item.english).font(.body.weight(.semibold))
-                                SpeakButton(
-                                    word: result.item.english,
-                                    size: 12,
-                                    pronunciation: pronunciation,
-                                    settings: settings
-                                )
-                            }
-                            Text(result.item.chinese)
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                            if !result.isCorrect, !result.userAnswer.isEmpty {
-                                Text("你的回答：\(result.userAnswer)")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.vertical, 2)
-                }
+    private func answerBinding(at index: Int) -> Binding<String> {
+        Binding(
+            get: {
+                guard session.prompts.indices.contains(index) else { return "" }
+                return session.prompts[index].answer
+            },
+            set: { newValue in
+                guard session.prompts.indices.contains(index) else { return }
+                var prompt = session.prompts[index]
+                prompt.answer = newValue
+                session.prompts[index] = prompt
             }
-            .listStyle(.inset)
-            .frame(maxHeight: 280)
-
-            HStack(spacing: 12) {
-                Button("返回设置") { session.backToSetup() }
-                Button("再练一轮") {
-                    setupError = session.restartSameSettings(allWords: allWords, groups: groups)
-                    focusFirstEmpty()
-                }
-                .buttonStyle(.borderedProminent)
-                Button("完成") { dismiss() }
-            }
-            .padding(.bottom, 16)
-        }
-        .padding(.horizontal, 20)
+        )
     }
+}
 
-    private var summaryIcon: String {
-        guard session.totalAnswered > 0 else { return "questionmark.circle" }
-        let ratio = Double(session.correctCount) / Double(session.totalAnswered)
-        if ratio >= 0.9 { return "star.circle.fill" }
-        if ratio >= 0.6 { return "hand.thumbsup.circle.fill" }
-        return "book.circle.fill"
-    }
-
-    private var summaryColor: Color {
-        guard session.totalAnswered > 0 else { return .secondary }
-        let ratio = Double(session.correctCount) / Double(session.totalAnswered)
-        if ratio >= 0.9 { return .yellow }
-        if ratio >= 0.6 { return .accentColor }
-        return .orange
-    }
-
-    private var summaryMessage: String {
-        guard session.totalAnswered > 0 else { return "本轮没有作答。" }
-        let ratio = Double(session.correctCount) / Double(session.totalAnswered)
-        if ratio == 1 { return "全部正确，太棒了！" }
-        if ratio >= 0.8 { return "很扎实，继续保持。" }
-        if ratio >= 0.5 { return "有进步空间，错题再看一眼会更熟。" }
-        return "别着急，先回到词库把释义看熟再练。"
-    }
-
-    // MARK: Helpers
-
-    private func wordCount(for scope: QuizSession.Scope) -> Int {
-        session.availableCount(for: scope, allWords: allWords, groups: groups)
-    }
-
-    private func focusFirstEmpty() {
-        DispatchQueue.main.async {
-            focusedPromptID = session.prompts.first(where: {
-                $0.feedback == nil && $0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            })?.id ?? session.prompts.first?.id
-        }
-    }
-
-    private func focusNext(after id: UUID) {
-        guard let idx = session.prompts.firstIndex(where: { $0.id == id }) else { return }
-        if idx + 1 < session.prompts.count {
-            focusedPromptID = session.prompts[idx + 1].id
-        } else if !session.pageChecked {
-            session.checkPage()
+private extension QuizLiveStatus {
+    var accessibilityLabel: String {
+        switch self {
+        case .idle: "未启用实时校验"
+        case .empty: "尚未输入"
+        case .correct: "正确"
+        case .incorrect: "尚未匹配"
         }
     }
 }

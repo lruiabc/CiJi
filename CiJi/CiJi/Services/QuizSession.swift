@@ -1,5 +1,13 @@
 import Foundation
 
+/// Live (pre-submit) correctness hint for practice rows.
+enum QuizLiveStatus: Equatable {
+    case idle
+    case empty
+    case correct
+    case incorrect
+}
+
 /// In-memory multi-word quiz session (not persisted).
 @MainActor
 final class QuizSession: ObservableObject {
@@ -70,6 +78,8 @@ final class QuizSession: ObservableObject {
     @Published var pageSize: Int = 5
     /// `0` = all eligible words.
     @Published var limit: Int = 0
+    /// When on, answers are validated as the user types (no submit required to see correctness).
+    @Published var liveCheckEnabled: Bool = true
 
     @Published private(set) var queue: [Item] = []
     @Published private(set) var pageIndex: Int = 0
@@ -88,8 +98,24 @@ final class QuizSession: ObservableObject {
     }
 
     var correctCount: Int { results.filter(\.isCorrect).count }
+    var wrongCount: Int { results.filter { !$0.isCorrect }.count }
     var totalAnswered: Int { results.count }
+    var totalCount: Int { results.count }
+    var wrongItems: [Result] { results.filter { !$0.isCorrect } }
+    var accuracy: Double {
+        guard totalAnswered > 0 else { return 0 }
+        return Double(correctCount) / Double(totalAnswered)
+    }
     var isLastPage: Bool { totalPages == 0 || pageIndex + 1 >= totalPages }
+
+    /// Live (pre-submit) status for one answer field.
+    static func liveStatus(answer: String, expectedChinese: String) -> QuizLiveStatus {
+        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return .empty }
+        return QuizAnswerMatcher.isCorrect(answer: trimmed, expected: expectedChinese)
+            ? .correct
+            : .incorrect
+    }
 
     func availableCount(for scope: Scope, allWords: [Word], groups: [WordGroup]) -> Int {
         eligibleItems(for: scope, allWords: allWords, groups: groups).count
