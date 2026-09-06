@@ -152,8 +152,7 @@ struct QuizView: View {
 
     private var practicingView: some View {
         VStack(spacing: 0) {
-            progressHeader
-            columnHeader
+            compactPracticeChrome
             Divider()
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -167,7 +166,7 @@ struct QuizView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 8)
+                .padding(.vertical, 4)
             }
             if !session.pageChecked {
                 Divider()
@@ -176,44 +175,40 @@ struct QuizView: View {
         }
     }
 
-    private var progressHeader: some View {
-        HStack {
-            Text(session.progressLabel)
-                .font(.subheadline.weight(.medium))
-            Spacer()
-            if session.liveCheckEnabled, !session.pageChecked {
-                Label("实时校验已开", systemImage: "checkmark.circle")
-                    .font(.caption)
+    /// Single slim chrome strip: progress + optional live-check + column labels.
+    private var compactPracticeChrome: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Text(session.progressLabel)
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                if session.liveCheckEnabled, !session.pageChecked {
+                    Label("实时校验已开", systemImage: "checkmark.circle")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .labelStyle(.titleAndIcon)
+                }
             }
+
+            HStack(alignment: .center, spacing: 16) {
+                Text("英文")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.quaternary)
+                    .frame(width: 20)
+                Text("中文释义")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Color.clear.frame(width: 28)
+            }
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(.bar)
-    }
-
-    private var columnHeader: some View {
-        HStack(alignment: .center, spacing: 16) {
-            Text("英文")
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 8, weight: .medium))
-                .foregroundStyle(.quaternary)
-                .frame(width: 20)
-
-            Text("中文释义")
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Color.clear.frame(width: 28)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
-        .padding(.bottom, 2)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func answerRow(index: Int, prompt: QuizSession.Prompt) -> some View {
@@ -329,15 +324,14 @@ struct QuizView: View {
     private var footerHint: some View {
         Text(
             session.liveCheckEnabled
-                ? "左侧英文 · 右侧输入中文。实时校验已开：对上任一义项即显示 ✓。⌘↩ 提交本页。"
-                : "左侧英文 · 右侧输入中文。提交后才显示对错。⌘↩ 提交本页。"
+                ? "左侧英文 · 右侧中文。实时校验已开 · ⌘↩ 提交本页"
+                : "左侧英文 · 右侧中文。提交后显示对错 · ⌘↩ 提交本页"
         )
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .font(.caption2)
+        .foregroundStyle(.tertiary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(.bar)
+        .padding(.vertical, 6)
     }
 
     // MARK: - Summary
