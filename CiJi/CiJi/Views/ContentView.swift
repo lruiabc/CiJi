@@ -301,7 +301,7 @@ struct ContentView: View {
             .width(min: 80, ideal: 120)
 
             TableColumn("来源") { word in
-                Text(word.source == "youdao" ? "有道" : "示例")
+                Text(word.source == "google" ? "Google" : (word.source == "mock" ? "示例" : word.source))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

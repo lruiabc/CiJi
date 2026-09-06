@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 可点击的发音按钮：播放有道词典真人发音（美音/英音由设置决定）。
+/// 可点击的发音按钮：播放 Google TTS 发音（美音/英音由设置决定）。
 struct SpeakButton: View {
     let word: String
     var size: CGFloat = 14

@@ -62,7 +62,7 @@ struct AddWordSheet: View {
                                 .textSelection(.enabled)
                         }
                         LabeledContent("来源") {
-                            Text(preview.source == "youdao" ? "有道词典" : "本地示例")
+                            Text(preview.source == "google" ? "Google 翻译" : "本地示例")
                                 .foregroundStyle(.secondary)
                         }
                     } else {
@@ -134,12 +134,8 @@ struct AddWordSheet: View {
         return groups.first { $0.uuid == id }
     }
 
-    private func dictionaryService() -> YoudaoDictionaryService {
-        YoudaoDictionaryService(
-            appKey: settings.youdaoAppKey,
-            appSecret: settings.youdaoAppSecret,
-            allowMockFallback: settings.useMockWhenNoKey
-        )
+    private func dictionaryService() -> GoogleTranslateService {
+        GoogleTranslateService(allowMockFallback: settings.useMockOnFailure)
     }
 
     private func lookup() async {
@@ -163,7 +159,7 @@ struct AddWordSheet: View {
                 category: "AddWord"
             )
             if result.source == "mock" {
-                infoMessage = DictionaryServiceError.missingCredentials.errorDescription
+                infoMessage = "网络查询失败，已使用本地示例释义。可在设置中关闭该回退。"
             }
         } catch {
             errorMessage = error.localizedDescription

@@ -7,8 +7,8 @@
 - **单条添加**：输入英文 → 查询音标与中文 → 试听发音 → 选择分组 → 入库
 - **批量导入**：每行一个单词，自动查词；可统一或按词指定分组
 - **分组管理**：新建 / 重命名 / 删除；每组可设容量；单词可随时改组
-- **发音按钮**：列表、添加预览、批量预览均可点击喇叭图标听读音（有道语音，支持美音/英音）
-- **有道词典 API**：设置中填写有道智云 App Key / Secret；未配置时可使用本地示例释义继续演示
+- **发音按钮**：列表、添加预览、批量预览均可点击喇叭听读音（Google TTS，失败回退系统朗读；支持美音/英音）
+- **Google 免费翻译**：无需 API Key；网络失败时可回退本地示例释义
 
 ## 环境要求
 
@@ -28,14 +28,17 @@
 4. 若 ▶ 是灰色 / `⌘R` 没反应：先点一下左侧蓝色工程图标，确认已打开的是 `.xcodeproj` 而不是 lone 源码文件
 5. 本地调试一般**不需要** Apple Developer 账号；若 Signing 报错，在 Target → Signing & Capabilities 里可先不选 Team（工程已用 ad-hoc 签名 `-`）
 
-### 配置有道 API（推荐）
+### 词典数据来源
 
-1. 打开 [有道智云](https://ai.youdao.com) 创建应用，开通「文本翻译 / 词典」相关服务
-2. 运行 App 后打开 **词记 → 设置…**（或 `⌘,`）
-3. 填入 **App Key** 与 **App Secret**
-4. 在「偏好」中可切换默认美音 / 英音，以及新建分组的默认容量
+查词使用 **Google Translate 免费接口**（无需 API Key）：
 
-未填写密钥时，若开启「使用本地示例释义」，可对内置示例词（如 `apple`、`memory`、`vocabulary`）获得演示数据；发音按钮仍可走有道公开语音接口试听。
+- 主接口：`clients5.google.com/translate_a/single`（`dict-chrome-ex`）
+- 回退：`clients5.google.com/translate_a/t`
+- 网络失败时可在设置中开启「本地示例释义」
+- 发音优先 Google TTS，失败则回退到系统朗读（AVSpeech）
+
+> 注意：这是非官方免费接口，可能限流或变更；正式上架 App Store 前建议换成 Google Cloud Translation 官方 API。
+
 
 ## 使用提示
 
@@ -55,11 +58,12 @@
 2. 日志前缀为 `[词记/…]`，批量导入、查词、分组写入都会打印
 3. 也可在 macOS「控制台」App 中过滤子系统 `app.ciji.mac`
 
-## 近期修复（功能 1）
+## 近期变更（功能 1）
 
-1. **批量导入卡住**：改为最多 3 路并发查询、可「停止」、单次请求超时约 12 秒，避免顺序请求把界面卡死  
-2. **中文/音标字段**：优先取有道 `basic.explains`（词典释义），其次 `translation`，再次 `web`；音标取 `phonetic` / `us-phonetic` / `uk-phonetic`  
-3. **单词无法进组**：分组选择改用 `GroupChoice`（避免 macOS 上 `UUID?` Picker 标签匹配失败），保存时显式写入 `word.group`
+1. **查词改为 Google Translate 免费接口**（无需 API Key；失败可回退本地示例）
+2. **发音改为 Google TTS**，失败时回退系统朗读
+3. **批量导入**：最多 3 路并发、可停止、请求超时约 12 秒
+4. **分组选择**：使用 `GroupChoice`，避免 macOS 上 `UUID?` Picker 匹配失败
 
 ## 项目结构
 
@@ -68,10 +72,10 @@ CiJi/
 ├── CiJi.xcodeproj
 ├── CiJi/
 │   ├── CiJiApp.swift
-│   ├── Models/          # Word、WordGroup（SwiftData）
-│   ├── Services/        # 有道查词、发音、设置
+│   ├── Models/          # Word、WordGroup、GroupChoice（SwiftData）
+│   ├── Services/        # Google 查词、发音、设置、日志
 │   └── Views/           # 主界面、添加、批量导入、设置
-└── CiJiTests/           # 签名算法等单元测试
+└── CiJiTests/           # Google 响应解析等单元测试
 ```
 
 ## 下一步（功能 2）

@@ -13,7 +13,7 @@
 		A10000000000000000000011 /* GroupChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* GroupChoice.swift */; };
 		A10000000000000000000012 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* AppLog.swift */; };
 		A10000000000000000000004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* SettingsStore.swift */; };
-		A10000000000000000000005 /* YoudaoDictionaryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* YoudaoDictionaryService.swift */; };
+		A10000000000000000000005 /* GoogleTranslateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* GoogleTranslateService.swift */; };
 		A10000000000000000000006 /* PronunciationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* PronunciationService.swift */; };
 		A10000000000000000000007 /* SpeakButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* SpeakButton.swift */; };
 		A10000000000000000000008 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* ContentView.swift */; };
@@ -21,7 +21,7 @@
 		A1000000000000000000000A /* BatchImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* BatchImportSheet.swift */; };
 		A1000000000000000000000B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* SettingsView.swift */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000C /* Assets.xcassets */; };
-		A1000000000000000000000D /* YoudaoSignTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* YoudaoSignTests.swift */; };
+		A1000000000000000000000D /* GoogleTranslateParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* GoogleTranslateParsingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,7 +41,7 @@
 		B10000000000000000000011 /* GroupChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChoice.swift; sourceTree = "<group>"; };
 		B10000000000000000000012 /* AppLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLog.swift; sourceTree = "<group>"; };
 		B10000000000000000000004 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
-		B10000000000000000000005 /* YoudaoDictionaryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoudaoDictionaryService.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* GoogleTranslateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleTranslateService.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* PronunciationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PronunciationService.swift; sourceTree = "<group>"; };
 		B10000000000000000000007 /* SpeakButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakButton.swift; sourceTree = "<group>"; };
 		B10000000000000000000008 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -49,7 +49,7 @@
 		B1000000000000000000000A /* BatchImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchImportSheet.swift; sourceTree = "<group>"; };
 		B1000000000000000000000B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B1000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B1000000000000000000000D /* YoudaoSignTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoudaoSignTests.swift; sourceTree = "<group>"; };
+		B1000000000000000000000D /* GoogleTranslateParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleTranslateParsingTests.swift; sourceTree = "<group>"; };
 		B1000000000000000000000E /* CiJi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CiJi.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000F /* CiJi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CiJi.entitlements; sourceTree = "<group>"; };
 		B10000000000000000000010 /* CiJiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CiJiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -109,7 +109,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000004 /* SettingsStore.swift */,
-				B10000000000000000000005 /* YoudaoDictionaryService.swift */,
+				B10000000000000000000005 /* GoogleTranslateService.swift */,
 				B10000000000000000000006 /* PronunciationService.swift */,
 				B10000000000000000000012 /* AppLog.swift */,
 			);
@@ -139,7 +139,7 @@
 		G10000000000000000000008 /* CiJiTests */ = {
 			isa = PBXGroup;
 			children = (
-				B1000000000000000000000D /* YoudaoSignTests.swift */,
+				B1000000000000000000000D /* GoogleTranslateParsingTests.swift */,
 			);
 			path = CiJiTests;
 			sourceTree = "<group>";
@@ -251,7 +251,7 @@
 				A10000000000000000000011 /* GroupChoice.swift in Sources */,
 				A10000000000000000000012 /* AppLog.swift in Sources */,
 				A10000000000000000000004 /* SettingsStore.swift in Sources */,
-				A10000000000000000000005 /* YoudaoDictionaryService.swift in Sources */,
+				A10000000000000000000005 /* GoogleTranslateService.swift in Sources */,
 				A10000000000000000000006 /* PronunciationService.swift in Sources */,
 				A10000000000000000000007 /* SpeakButton.swift in Sources */,
 				A10000000000000000000008 /* ContentView.swift in Sources */,
@@ -265,7 +265,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000000000000000000000D /* YoudaoSignTests.swift in Sources */,
+				A1000000000000000000000D /* GoogleTranslateParsingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

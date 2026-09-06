@@ -17,7 +17,7 @@ final class Word {
         phonetic: String = "",
         chinese: String = "",
         sortOrder: Int = 0,
-        source: String = "youdao",
+        source: String = "google",
         group: WordGroup? = nil
     ) {
         self.uuid = UUID()

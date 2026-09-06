@@ -6,11 +6,13 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             Form {
-                Section("有道智云词典 API") {
-                    TextField("App Key", text: $settings.youdaoAppKey)
-                    SecureField("App Secret", text: $settings.youdaoAppSecret)
-                    Toggle("未配置 Key 时使用本地示例释义", isOn: $settings.useMockWhenNoKey)
-                    Text("在 https://ai.youdao.com 创建应用后，将密钥填入此处。发音功能使用有道公开语音接口，无需单独密钥。")
+                Section("词典与翻译") {
+                    LabeledContent("数据来源") {
+                        Text("Google Translate（免费）")
+                            .foregroundStyle(.secondary)
+                    }
+                    Toggle("网络失败时使用本地示例释义", isOn: $settings.useMockOnFailure)
+                    Text("查词使用 Google 免费翻译接口，无需 API Key。该接口非官方、可能限流。发音使用 Google TTS。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -35,7 +37,7 @@ struct SettingsView: View {
             .padding()
             .tabItem { Label("偏好", systemImage: "slider.horizontal.3") }
         }
-        .frame(width: 460, height: 300)
+        .frame(width: 460, height: 280)
     }
 }
 

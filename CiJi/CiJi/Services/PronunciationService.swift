@@ -1,6 +1,9 @@
 import Foundation
 import AVFoundation
 import Combine
+import os
+
+private let speechLog = Logger(subsystem: "app.ciji.mac", category: "Pronunciation")
 
 enum PronunciationAccent: String, CaseIterable, Identifiable {
     case us
@@ -15,11 +18,17 @@ enum PronunciationAccent: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 有道 dictvoice：1=美音，2=英音
-    var youdaoType: String {
+    var googleTL: String {
         switch self {
-        case .us: return "1"
-        case .uk: return "2"
+        case .us: return "en"
+        case .uk: return "en-GB"
+        }
+    }
+
+    var avLanguage: String {
+        switch self {
+        case .us: return "en-US"
+        case .uk: return "en-GB"
         }
     }
 }
@@ -33,23 +42,29 @@ final class PronunciationService: ObservableObject {
     private var player: AVPlayer?
     private var endObserver: NSObjectProtocol?
     private var statusObservation: NSKeyValueObservation?
+    private let synthesizer = AVSpeechSynthesizer()
+    private var speechDelegate: SpeechDelegate?
 
     func play(word: String, preferUS: Bool) {
         let trimmed = word.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let accent: PronunciationAccent = preferUS ? .us : .uk
-        play(word: trimmed, accent: accent)
+        play(word: trimmed, accent: preferUS ? .us : .uk)
     }
 
     func play(word: String, accent: PronunciationAccent) {
         lastError = nil
         stop()
 
+        // Prefer Google TTS; fall back to system speech if the stream fails.
         let encoded = word.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? word
-        guard let url = URL(string: "https://dict.youdao.com/dictvoice?audio=\(encoded)&type=\(accent.youdaoType)") else {
-            lastError = "无法创建发音地址"
+        let urlString =
+            "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=\(accent.googleTL)&q=\(encoded)"
+        guard let url = URL(string: urlString) else {
+            speakLocally(word: word, accent: accent)
             return
         }
+
+        speechLog.debug("Play TTS \(word, privacy: .public)")
 
         let item = AVPlayerItem(url: url)
         let newPlayer = AVPlayer(playerItem: item)
@@ -71,9 +86,9 @@ final class PronunciationService: ObservableObject {
         statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             Task { @MainActor in
                 if item.status == .failed {
-                    self?.lastError = item.error?.localizedDescription ?? "发音加载失败"
-                    self?.isPlaying = false
-                    self?.playingWord = nil
+                    speechLog.error("Google TTS failed — falling back to AVSpeech")
+                    self?.stopPlayerOnly()
+                    self?.speakLocally(word: word, accent: accent)
                 }
             }
         }
@@ -90,6 +105,20 @@ final class PronunciationService: ObservableObject {
     }
 
     func stop() {
+        stopPlayerOnly()
+        if synthesizer.isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        speechDelegate = nil
+        isPlaying = false
+        playingWord = nil
+    }
+
+    func isPlaying(_ word: String) -> Bool {
+        isPlaying && playingWord == word.lowercased()
+    }
+
+    private func stopPlayerOnly() {
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
             self.endObserver = nil
@@ -98,11 +127,41 @@ final class PronunciationService: ObservableObject {
         statusObservation = nil
         player?.pause()
         player = nil
-        isPlaying = false
-        playingWord = nil
     }
 
-    func isPlaying(_ word: String) -> Bool {
-        isPlaying && playingWord == word.lowercased()
+    private func speakLocally(word: String, accent: PronunciationAccent) {
+        let utterance = AVSpeechUtterance(string: word)
+        utterance.voice = AVSpeechSynthesisVoice(language: accent.avLanguage)
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+
+        let delegate = SpeechDelegate { [weak self] in
+            Task { @MainActor in
+                self?.isPlaying = false
+                self?.playingWord = nil
+                self?.speechDelegate = nil
+            }
+        }
+        speechDelegate = delegate
+        synthesizer.delegate = delegate
+
+        playingWord = word.lowercased()
+        isPlaying = true
+        synthesizer.speak(utterance)
+    }
+}
+
+private final class SpeechDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    private let onFinish: () -> Void
+
+    init(onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        onFinish()
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        onFinish()
     }
 }
