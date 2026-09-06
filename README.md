@@ -20,10 +20,13 @@
 
 ## 打开与运行
 
-1. 用 Xcode 打开 `CiJi/CiJi.xcodeproj`
-2. 选择 scheme **CiJi**，目标为本机 Mac
-3. 如需真机签名：在 Signing & Capabilities 中选择你的 Team
-4. 按 `⌘R` 运行
+1. **务必打开工程文件**（不是单个 `.swift`）：双击 `CiJi/CiJi.xcodeproj`，或用 Xcode → File → Open…
+2. 看 Xcode **顶部工具栏**中间：
+   - 左侧 scheme 选 **CiJi**（不要选 CiJiTests）
+   - 右侧运行目标选 **My Mac**（本机 Mac）
+3. 菜单 **Product → Run**，或点工具栏 ▶ 按钮，或 `⌘R`
+4. 若 ▶ 是灰色 / `⌘R` 没反应：先点一下左侧蓝色工程图标，确认已打开的是 `.xcodeproj` 而不是 lone 源码文件
+5. 本地调试一般**不需要** Apple Developer 账号；若 Signing 报错，在 Target → Signing & Capabilities 里可先不选 Team（工程已用 ad-hoc 签名 `-`）
 
 ### 配置有道 API（推荐）
 
