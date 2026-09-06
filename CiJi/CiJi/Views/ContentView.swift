@@ -25,6 +25,8 @@ struct ContentView: View {
     @State private var selectedWordIDs: Set<Word.ID> = []
     @State private var renameTarget: WordGroup?
     @State private var renameText = ""
+    @State private var editingChineseWord: Word?
+    @State private var editingChineseText = ""
 
     private var visibleWords: [Word] {
         let base: [Word]
@@ -92,6 +94,23 @@ struct ContentView: View {
                 renameTarget = nil
             }
         }
+        
+        .alert(
+            "编辑中文释义",
+            isPresented: Binding(
+                get: { editingChineseWord != nil },
+                set: { if !$0 { editingChineseWord = nil } }
+            )
+        ) {
+            TextField("中文意思", text: $editingChineseText)
+            Button("取消", role: .cancel) { editingChineseWord = nil }
+            Button("保存") { saveChineseEdit() }
+        } message: {
+            if let word = editingChineseWord {
+                Text("修改「\(word.english)」的中文释义。")
+            }
+        }
+
         .overlay(alignment: .bottom) {
             if let err = pronunciation.lastError {
                 Text(err)
@@ -212,6 +231,14 @@ struct ContentView: View {
             .keyboardShortcut("n", modifiers: [.command, .shift])
 
             if !selectedWordIDs.isEmpty {
+                if selectedWordIDs.count == 1, let word = selectedWords(from: selectedWordIDs).first {
+                    Button {
+                        beginChineseEdit(word)
+                    } label: {
+                        Label("编辑中文", systemImage: "pencil")
+                    }
+                }
+
                 Menu {
                     Menu("加入分组") {
                         ForEach(groups, id: \.uuid) { group in
@@ -305,10 +332,11 @@ struct ContentView: View {
             .width(min: 100, ideal: 150)
 
             TableColumn("中文") { word in
-                Text(word.chinese.isEmpty ? "—" : word.chinese)
-                    .lineLimit(2)
+                TextField("点击编辑中文", text: chineseBinding(for: word))
+                    .textFieldStyle(.plain)
+                    .help("直接修改中文释义，回车或失焦后自动保存")
             }
-            .width(min: 160, ideal: 260)
+            .width(min: 160, ideal: 280)
 
             TableColumn("分组") { word in
                 Text(word.groupNamesText)
@@ -327,6 +355,12 @@ struct ContentView: View {
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .contextMenu(forSelectionType: Word.ID.self) { ids in
             if !ids.isEmpty {
+                if ids.count == 1, let word = selectedWords(from: ids).first {
+                    Button("编辑中文释义…") {
+                        beginChineseEdit(word)
+                    }
+                    Divider()
+                }
                 Menu("加入分组") {
                     ForEach(groups, id: \.uuid) { group in
                         Button(group.name) { add(ids: ids, to: group) }
@@ -438,6 +472,31 @@ struct ContentView: View {
         }
         try? modelContext.save()
         AppLog.console("清空分组 \(ids.count) 个", category: "Groups")
+    }
+
+
+    private func chineseBinding(for word: Word) -> Binding<String> {
+        Binding(
+            get: { word.chinese },
+            set: { newValue in
+                guard word.chinese != newValue else { return }
+                word.chinese = newValue
+                try? modelContext.save()
+            }
+        )
+    }
+
+    private func beginChineseEdit(_ word: Word) {
+        editingChineseWord = word
+        editingChineseText = word.chinese
+    }
+
+    private func saveChineseEdit() {
+        guard let word = editingChineseWord else { return }
+        word.chinese = editingChineseText.trimmingCharacters(in: .whitespacesAndNewlines)
+        try? modelContext.save()
+        AppLog.console("更新中文 \(word.english) → \(word.chinese)", category: "Words")
+        editingChineseWord = nil
     }
 
     private func deleteSelected() {
