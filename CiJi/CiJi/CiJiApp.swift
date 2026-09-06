@@ -15,7 +15,18 @@ struct CiJiApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [configuration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // Early-dev schema changes (e.g. Word.group → Word.groups) may invalidate the store.
+            // Recreate once so the app can launch; local data from the old schema is cleared.
+            let url = configuration.url
+            try? FileManager.default.removeItem(at: url)
+            let storeDir = url.deletingLastPathComponent()
+            try? FileManager.default.removeItem(at: storeDir.appendingPathComponent(url.lastPathComponent + "-shm"))
+            try? FileManager.default.removeItem(at: storeDir.appendingPathComponent(url.lastPathComponent + "-wal"))
+            do {
+                return try ModelContainer(for: schema, configurations: [configuration])
+            } catch {
+                fatalError("Could not create ModelContainer: \(error)")
+            }
         }
     }()
 

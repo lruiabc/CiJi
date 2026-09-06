@@ -10,9 +10,11 @@ private struct ImportDraft: Identifiable, Equatable {
     var phonetic: String = ""
     var chinese: String = ""
     var source: String = ""
-    var groupChoice: GroupChoice = .none
+    var groupSelection: GroupSelection = .none
     var status: Status = .pending
     var message: String?
+    /// Already in the library — commit merges selected groups onto the existing word.
+    var alreadyExists: Bool = false
 
     enum Status: Equatable {
         case pending, loading, ready, failed, skipped
@@ -23,7 +25,6 @@ struct BatchImportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: SettingsStore
-    @EnvironmentObject private var pronunciation: PronunciationService
 
     @Query(sort: \WordGroup.sortOrder) private var groups: [WordGroup]
     @Query private var existingWords: [Word]
@@ -32,7 +33,8 @@ struct BatchImportSheet: View {
 
     @State private var rawText = ""
     @State private var drafts: [ImportDraft] = []
-    @State private var defaultGroupChoice: GroupChoice = .none
+    @State private var defaultGroupSelection = GroupSelection.none
+    @State private var bulkSelection = GroupSelection.none
     @State private var isLookingUp = false
     @State private var progressDone = 0
     @State private var progressTotal = 0
@@ -55,22 +57,19 @@ struct BatchImportSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(isLookingUp ? "停止" : "取消") {
-                        if isLookingUp {
-                            cancelLookup()
-                        } else {
-                            dismiss()
-                        }
+                        if isLookingUp { cancelLookup() } else { dismiss() }
                     }
                 }
                 if !drafts.isEmpty {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("写入词库") { commit() }
-                            .disabled(isLookingUp || readyCount == 0)
+                            .disabled(isLookingUp || savableCount == 0)
                     }
                 }
             }
             .onAppear {
-                defaultGroupChoice = GroupChoice(uuid: preferredGroup?.uuid)
+                defaultGroupSelection = GroupSelection(preferred: preferredGroup)
+                bulkSelection = defaultGroupSelection
             }
             .onDisappear { cancelLookup() }
             .alert("导入完成", isPresented: $didSave) {
@@ -79,13 +78,15 @@ struct BatchImportSheet: View {
                 Text(statusMessage ?? "单词已加入词库。")
             }
         }
-        .frame(minWidth: 720, minHeight: 520)
+        .frame(minWidth: 780, minHeight: 560)
     }
+
+    // MARK: - Input
 
     private var inputPhase: some View {
         Form {
             Section {
-                Text("每行一个英文单词。可先选定默认分组；预览阶段还能给个别单词改组。")
+                Text("每行一个英文单词。可多选默认分组；预览阶段还能批量改组或逐词调整。同一单词可属于多个分组。")
                     .foregroundStyle(.secondary)
                     .font(.callout)
             }
@@ -93,17 +94,11 @@ struct BatchImportSheet: View {
             Section("单词列表") {
                 TextEditor(text: $rawText)
                     .font(.body.monospaced())
-                    .frame(minHeight: 220)
+                    .frame(minHeight: 200)
             }
 
-            Section("默认分组") {
-                Picker("放入", selection: $defaultGroupChoice) {
-                    Text("未分组").tag(GroupChoice.none)
-                    ForEach(groups, id: \.uuid) { group in
-                        Text("\(group.name)（\(group.wordCount)/\(group.capacity)）")
-                            .tag(GroupChoice.group(group.uuid))
-                    }
-                }
+            Section("默认分组（可多选）") {
+                GroupMultiPicker(selection: $defaultGroupSelection, groups: groups)
             }
 
             Section {
@@ -119,6 +114,8 @@ struct BatchImportSheet: View {
         .padding()
     }
 
+    // MARK: - Preview
+
     private var previewPhase: some View {
         VStack(spacing: 0) {
             HStack {
@@ -130,7 +127,7 @@ struct BatchImportSheet: View {
                         .foregroundStyle(.secondary)
                     Button("停止") { cancelLookup() }
                 } else {
-                    Text("可保存 \(readyCount) 个 · 跳过 \(skippedCount) · 失败 \(failedCount)")
+                    Text("可写入 \(savableCount) · 新建 \(newReadyCount) · 追加 \(existingReadyCount) · 跳过 \(skippedCount) · 失败 \(failedCount)")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -143,6 +140,39 @@ struct BatchImportSheet: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
+
+            Divider()
+
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("批量修改分组")
+                        .font(.headline)
+                    Text("应用到所有「新建 / 追加」项。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 150, alignment: .leading)
+
+                GroupMultiPicker(
+                    selection: $bulkSelection,
+                    groups: groups,
+                    showCapacityWarnings: false
+                )
+                .frame(maxWidth: 320)
+
+                VStack(spacing: 8) {
+                    Button("应用到全部可写入项") { applyBulkGroups() }
+                        .disabled(isLookingUp || savableCount == 0)
+                    Button("清空全部分组") {
+                        bulkSelection = .none
+                        applyBulkGroups()
+                    }
+                    .disabled(isLookingUp || savableCount == 0)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .background(Color(nsColor: .controlBackgroundColor))
 
             Divider()
 
@@ -170,54 +200,84 @@ struct BatchImportSheet: View {
                         .lineLimit(2)
                         .foregroundStyle(draft.status == .failed ? .red : .primary)
                 }
-                .width(min: 140, ideal: 220)
+                .width(min: 140, ideal: 200)
 
                 TableColumn("分组") { draft in
-                    Picker("", selection: bindingGroup(for: draft.id)) {
-                        Text("未分组").tag(GroupChoice.none)
-                        ForEach(groups, id: \.uuid) { group in
-                            Text(group.name).tag(GroupChoice.group(group.uuid))
+                    Menu {
+                        Button("未分组") {
+                            setGroups(for: draft.id, selection: .none)
                         }
+                        ForEach(groups, id: \.uuid) { group in
+                            Button {
+                                toggleGroup(for: draft.id, uuid: group.uuid)
+                            } label: {
+                                HStack {
+                                    Text(group.name)
+                                    if draft.groupSelection.contains(group.uuid) {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Text(draft.groupSelection.summary(from: groups))
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .labelsHidden()
                     .disabled(draft.status == .skipped || isLookingUp)
                 }
-                .width(min: 110, ideal: 150)
+                .width(min: 120, ideal: 160)
 
                 TableColumn("状态") { draft in
-                    statusLabel(draft.status)
+                    statusLabel(draft)
                 }
-                .width(64)
+                .width(min: 72, ideal: 88)
             }
             .tableStyle(.inset(alternatesRowBackgrounds: true))
         }
     }
 
-    private func bindingGroup(for id: UUID) -> Binding<GroupChoice> {
-        Binding(
-            get: { drafts.first(where: { $0.id == id })?.groupChoice ?? .none },
-            set: { newValue in
-                if let idx = drafts.firstIndex(where: { $0.id == id }) {
-                    drafts[idx].groupChoice = newValue
-                }
-            }
-        )
-    }
-
     @ViewBuilder
-    private func statusLabel(_ status: ImportDraft.Status) -> some View {
-        switch status {
-        case .pending: Text("等待").foregroundStyle(.secondary)
-        case .loading: ProgressView().controlSize(.small)
-        case .ready: Text("就绪").foregroundStyle(.green)
-        case .failed: Text("失败").foregroundStyle(.red)
-        case .skipped: Text("跳过").foregroundStyle(.orange)
+    private func statusLabel(_ draft: ImportDraft) -> some View {
+        switch draft.status {
+        case .pending:
+            Text("等待").foregroundStyle(.secondary)
+        case .loading:
+            ProgressView().controlSize(.small)
+        case .ready:
+            Text(draft.alreadyExists ? "追加" : "新建")
+                .foregroundStyle(draft.alreadyExists ? .blue : .green)
+        case .failed:
+            Text("失败").foregroundStyle(.red)
+        case .skipped:
+            Text("跳过").foregroundStyle(.orange)
         }
     }
 
-    private var readyCount: Int { drafts.filter { $0.status == .ready }.count }
+    private var savableCount: Int { drafts.filter { $0.status == .ready }.count }
+    private var newReadyCount: Int { drafts.filter { $0.status == .ready && !$0.alreadyExists }.count }
+    private var existingReadyCount: Int { drafts.filter { $0.status == .ready && $0.alreadyExists }.count }
     private var failedCount: Int { drafts.filter { $0.status == .failed }.count }
     private var skippedCount: Int { drafts.filter { $0.status == .skipped }.count }
+
+    private func setGroups(for id: UUID, selection: GroupSelection) {
+        guard let idx = drafts.firstIndex(where: { $0.id == id }) else { return }
+        drafts[idx].groupSelection = selection
+    }
+
+    private func toggleGroup(for id: UUID, uuid: UUID) {
+        guard let idx = drafts.firstIndex(where: { $0.id == id }) else { return }
+        drafts[idx].groupSelection.toggle(uuid)
+    }
+
+    private func applyBulkGroups() {
+        for index in drafts.indices where drafts[index].status == .ready {
+            drafts[index].groupSelection = bulkSelection
+        }
+        AppLog.console(
+            "批量改组 → \(bulkSelection.summary(from: groups))，影响 \(savableCount) 项",
+            category: "BatchImport"
+        )
+    }
 
     private func cancelLookup() {
         lookupTask?.cancel()
@@ -231,7 +291,7 @@ struct BatchImportSheet: View {
 
     @MainActor
     private func prepareAndLookup() async {
-        let existing = Set(existingWords.map(\.english))
+        let existingByEnglish = Dictionary(uniqueKeysWithValues: existingWords.map { ($0.english, $0) })
         let lines = rawText
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -243,26 +303,27 @@ struct BatchImportSheet: View {
             let token = line.split(whereSeparator: { $0 == "," || $0 == "\t" || $0 == " " }).first.map(String.init) ?? line
             let raw = token.lowercased()
             guard !raw.isEmpty else { continue }
-            // Deduplicate by lemma so "runs" / "running" don't both enter.
             let lemma = EnglishLemmatizer.lemma(for: raw)
             if seen.contains(lemma) { continue }
             seen.insert(lemma)
 
-            var draft = ImportDraft(english: raw, groupChoice: defaultGroupChoice)
-            if existing.contains(lemma) {
-                draft.status = .skipped
-                draft.message = "词库已有原型「\(lemma)」"
+            var draft = ImportDraft(english: raw, groupSelection: defaultGroupSelection)
+            if existingByEnglish[lemma] != nil {
+                draft.alreadyExists = true
+                draft.english = lemma
+                draft.message = "词库已有，将追加所选分组"
             }
             built.append(draft)
         }
 
         drafts = built
-        let fetchIndices = built.indices.filter { built[$0].status != .skipped }
+        bulkSelection = defaultGroupSelection
+        let fetchIndices = built.indices // look up all, including existing (refresh gloss)
         progressTotal = fetchIndices.count
         progressDone = 0
         isLookingUp = true
 
-        batchLog.info("Batch start: \(built.count) drafts, \(fetchIndices.count) to fetch")
+        batchLog.info("Batch start: \(built.count) drafts")
         AppLog.console(
             "开始批量查询 \(fetchIndices.count) 个单词（并发 \(maxConcurrentLookups)）",
             category: "BatchImport"
@@ -302,15 +363,22 @@ struct BatchImportSheet: View {
                         drafts[index].chinese = lookup.chinese
                         drafts[index].source = lookup.source
                         drafts[index].status = .ready
-                        if lookup.wasLemmatized, let inputForm = lookup.inputForm {
+                        if drafts[index].alreadyExists {
+                            drafts[index].message = "词库已有，将追加所选分组"
+                        } else if lookup.wasLemmatized, let inputForm = lookup.inputForm {
                             drafts[index].message = "由 \(inputForm) 还原"
                         }
                     case .failure(let error):
-                        drafts[index].status = .failed
-                        drafts[index].message = error.localizedDescription
-                        batchLog.error(
-                            "Fail \(drafts[index].english, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                        )
+                        if drafts[index].alreadyExists {
+                            drafts[index].status = .ready
+                            drafts[index].message = "词库已有（刷新释义失败）：仍可追加分组"
+                        } else {
+                            drafts[index].status = .failed
+                            drafts[index].message = error.localizedDescription
+                            batchLog.error(
+                                "Fail \(drafts[index].english, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            )
+                        }
                     }
                     progressDone += 1
                 }
@@ -321,34 +389,54 @@ struct BatchImportSheet: View {
 
         isLookingUp = false
         lookupTask = nil
-        batchLog.info("Batch finished: ready=\(self.readyCount) failed=\(self.failedCount)")
+        batchLog.info("Batch finished: ready=\(self.savableCount) failed=\(self.failedCount)")
         AppLog.console(
-            "批量查询结束：就绪 \(readyCount)，失败 \(failedCount)",
+            "批量查询结束：可写入 \(savableCount)，失败 \(failedCount)",
             category: "BatchImport"
         )
     }
 
     private func commit() {
-        var saved = 0
+        var created = 0
+        var merged = 0
+        let existingByEnglish = Dictionary(uniqueKeysWithValues: existingWords.map { ($0.english, $0) })
+
         for draft in drafts where draft.status == .ready {
-            let group = groups.first { $0.uuid == draft.groupChoice.uuid }
-            let word = Word(
-                english: draft.english,
-                phonetic: draft.phonetic,
-                chinese: draft.chinese,
-                source: draft.source.isEmpty ? "google" : draft.source,
-                group: group
-            )
-            modelContext.insert(word)
-            word.group = group
-            saved += 1
-            AppLog.console(
-                "写入 \(draft.english) → 组 \(group?.name ?? "未分组")，中文=\(draft.chinese)",
-                category: "BatchImport"
-            )
+            let targetGroups = draft.groupSelection.resolve(from: groups)
+            let key = draft.english.lowercased()
+            if let existing = existingByEnglish[key] {
+                for group in targetGroups {
+                    existing.addToGroup(group)
+                }
+                if existing.phonetic.isEmpty, !draft.phonetic.isEmpty {
+                    existing.phonetic = draft.phonetic
+                }
+                if existing.chinese.isEmpty, !draft.chinese.isEmpty {
+                    existing.chinese = draft.chinese
+                }
+                merged += 1
+                AppLog.console(
+                    "追加 \(draft.english) → \(draft.groupSelection.summary(from: groups))",
+                    category: "BatchImport"
+                )
+            } else {
+                let word = Word(
+                    english: draft.english,
+                    phonetic: draft.phonetic,
+                    chinese: draft.chinese,
+                    source: draft.source.isEmpty ? "google" : draft.source,
+                    groups: targetGroups
+                )
+                modelContext.insert(word)
+                created += 1
+                AppLog.console(
+                    "新建 \(draft.english) → \(draft.groupSelection.summary(from: groups))，中文=\(draft.chinese)",
+                    category: "BatchImport"
+                )
+            }
         }
         try? modelContext.save()
-        statusMessage = "成功写入 \(saved) 个单词。"
+        statusMessage = "新建 \(created) 个，追加分组 \(merged) 个。"
         didSave = true
     }
 }

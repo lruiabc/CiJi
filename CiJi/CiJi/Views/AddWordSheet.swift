@@ -5,7 +5,6 @@ struct AddWordSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: SettingsStore
-    @EnvironmentObject private var pronunciation: PronunciationService
 
     @Query(sort: \WordGroup.sortOrder) private var groups: [WordGroup]
     @Query private var existingWords: [Word]
@@ -13,12 +12,13 @@ struct AddWordSheet: View {
     var preferredGroup: WordGroup?
 
     @State private var input = ""
-    @State private var groupChoice: GroupChoice = .none
+    @State private var groupSelection = GroupSelection.none
     @State private var preview: DictionaryLookupResult?
     @State private var isLookingUp = false
     @State private var errorMessage: String?
     @State private var infoMessage: String?
     @State private var saveSucceeded = false
+    @State private var saveAlertMessage = ""
 
     var body: some View {
         NavigationStack {
@@ -87,20 +87,11 @@ struct AddWordSheet: View {
                     }
                 }
 
-                Section("放入分组") {
-                    Picker("目标分组", selection: $groupChoice) {
-                        Text("未分组").tag(GroupChoice.none)
-                        ForEach(groups, id: \.uuid) { group in
-                            Text("\(group.name)（\(group.wordCount)/\(group.capacity)）")
-                                .tag(GroupChoice.group(group.uuid))
-                        }
-                    }
-
-                    if let group = selectedGroup, group.wordCount >= group.capacity {
-                        Text("该组已满（\(group.capacity)）。仍可强制加入，建议新建分组或提高容量。")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
+                Section("放入分组（可多选）") {
+                    GroupMultiPicker(selection: $groupSelection, groups: groups)
+                    Text("同一单词可同时属于多个分组。若词库已有该词，将把所选分组追加进去。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)
@@ -117,9 +108,9 @@ struct AddWordSheet: View {
                 }
             }
             .onAppear {
-                groupChoice = GroupChoice(uuid: preferredGroup?.uuid)
+                groupSelection = GroupSelection(preferred: preferredGroup)
             }
-            .alert("已加入词库", isPresented: $saveSucceeded) {
+            .alert("已保存", isPresented: $saveSucceeded) {
                 Button("继续添加") {
                     input = ""
                     preview = nil
@@ -128,15 +119,10 @@ struct AddWordSheet: View {
                 }
                 Button("完成") { dismiss() }
             } message: {
-                Text("单词已保存。列表中可随时点击发音按钮听读音。")
+                Text(saveAlertMessage)
             }
         }
-        .frame(minWidth: 480, minHeight: 420)
-    }
-
-    private var selectedGroup: WordGroup? {
-        guard let id = groupChoice.uuid else { return nil }
-        return groups.first { $0.uuid == id }
+        .frame(minWidth: 520, minHeight: 480)
     }
 
     private func dictionaryService() -> GoogleTranslateService {
@@ -164,7 +150,7 @@ struct AddWordSheet: View {
                 category: "AddWord"
             )
             if result.wasLemmatized, let inputForm = result.inputForm {
-                infoMessage = "已将「\(inputForm)」还原为原型「\(result.english)」并保存该原型。"
+                infoMessage = "已将「\(inputForm)」还原为原型「\(result.english)」。"
             }
             if result.source == "mock" {
                 let mockNote = "网络查询失败，已使用本地示例释义。可在设置中关闭该回退。"
@@ -173,6 +159,10 @@ struct AddWordSheet: View {
             if result.phonetic.isEmpty {
                 let phNote = "未找到 IPA 音标（词典源暂无该词读音）。"
                 infoMessage = [infoMessage, phNote].compactMap { $0 }.joined(separator: " ")
+            }
+            if existingWords.contains(where: { $0.english == result.english.lowercased() }) {
+                let existNote = "词库已有「\(result.english)」，保存时会追加所选分组。"
+                infoMessage = [infoMessage, existNote].compactMap { $0 }.joined(separator: " ")
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -183,23 +173,43 @@ struct AddWordSheet: View {
     private func save() {
         guard let preview else { return }
         let english = preview.english.lowercased()
-        if existingWords.contains(where: { $0.english == english }) {
-            errorMessage = "词库中已有「\(english)」，请勿重复添加。"
+        let targetGroups = groupSelection.resolve(from: groups)
+
+        if let existing = existingWords.first(where: { $0.english == english }) {
+            for group in targetGroups {
+                existing.addToGroup(group)
+            }
+            // Optionally refresh gloss if empty
+            if existing.phonetic.isEmpty, !preview.phonetic.isEmpty {
+                existing.phonetic = preview.phonetic
+            }
+            if existing.chinese.isEmpty, !preview.chinese.isEmpty {
+                existing.chinese = preview.chinese
+            }
+            try? modelContext.save()
+            let names = targetGroups.map(\.name).joined(separator: "、")
+            saveAlertMessage = targetGroups.isEmpty
+                ? "词库已有「\(english)」。未选择分组，未改动其所属分组。"
+                : "词库已有「\(english)」，已追加到：\(names)。"
+            AppLog.console("追加分组 \(english) → \(names.isEmpty ? "无" : names)", category: "AddWord")
+            saveSucceeded = true
             return
         }
 
-        let group = selectedGroup
         let word = Word(
             english: preview.english,
             phonetic: preview.phonetic,
             chinese: preview.chinese,
             source: preview.source,
-            group: group
+            groups: targetGroups
         )
         modelContext.insert(word)
-        word.group = group
         try? modelContext.save()
-        AppLog.console("保存 \(english) → 组 \(group?.name ?? "未分组")", category: "AddWord")
+        let names = targetGroups.map(\.name).joined(separator: "、")
+        saveAlertMessage = targetGroups.isEmpty
+            ? "「\(english)」已保存为未分组。"
+            : "「\(english)」已加入：\(names)。"
+        AppLog.console("保存 \(english) → \(names.isEmpty ? "未分组" : names)", category: "AddWord")
         saveSucceeded = true
     }
 }

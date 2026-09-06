@@ -32,9 +32,11 @@ struct ContentView: View {
         case .all:
             base = allWords
         case .ungrouped:
-            base = allWords.filter { $0.group == nil }
+            base = allWords.filter(\.isUngrouped)
         case .group(let id):
-            base = allWords.filter { $0.group?.uuid == id }
+            base = allWords.filter { word in
+                word.groups.contains(where: { $0.uuid == id })
+            }
         }
 
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -113,7 +115,7 @@ struct ContentView: View {
                     .tag(SidebarSelection.all)
 
                 Label("未分组", systemImage: "tray")
-                    .badge(allWords.filter { $0.group == nil }.count)
+                    .badge(allWords.filter(\.isUngrouped).count)
                     .tag(SidebarSelection.ungrouped)
             }
 
@@ -211,16 +213,30 @@ struct ContentView: View {
 
             if !selectedWordIDs.isEmpty {
                 Menu {
-                    Button("移到「未分组」") {
-                        moveSelected(to: nil)
-                    }
-                    ForEach(groups, id: \.uuid) { group in
-                        Button(group.name) {
-                            moveSelected(to: group)
+                    Menu("加入分组") {
+                        ForEach(groups, id: \.uuid) { group in
+                            Button(group.name) {
+                                addSelected(to: group)
+                            }
                         }
                     }
+                    Menu("仅保留此组") {
+                        ForEach(groups, id: \.uuid) { group in
+                            Button(group.name) {
+                                replaceSelected(with: group)
+                            }
+                        }
+                    }
+                    if let currentGroup {
+                        Button("移出「\(currentGroup.name)」") {
+                            removeSelected(from: currentGroup)
+                        }
+                    }
+                    Button("清空全部分组") {
+                        clearSelectedGroups()
+                    }
                 } label: {
-                    Label("移动到组 (\(selectedWordIDs.count))", systemImage: "arrow.right.doc.on.clipboard")
+                    Label("分组 (\(selectedWordIDs.count))", systemImage: "folder.badge.gearshape")
                 }
 
                 Button(role: .destructive) {
@@ -265,7 +281,7 @@ struct ContentView: View {
 
     private var emptyDescription: String {
         if !searchText.isEmpty { return "试试其他关键词，或清空搜索。" }
-        return "先添加几个英文单词。系统会自动查询音标与中文，并可一键听发音。"
+        return "先添加几个英文单词。系统会自动查询音标与中文，并可一键听发音。同一单词可加入多个分组。"
     }
 
     private var wordTable: some View {
@@ -292,13 +308,14 @@ struct ContentView: View {
                 Text(word.chinese.isEmpty ? "—" : word.chinese)
                     .lineLimit(2)
             }
-            .width(min: 160, ideal: 280)
+            .width(min: 160, ideal: 260)
 
             TableColumn("分组") { word in
-                Text(word.group?.name ?? "未分组")
-                    .foregroundStyle(word.group == nil ? .tertiary : .secondary)
+                Text(word.groupNamesText)
+                    .foregroundStyle(word.isUngrouped ? .tertiary : .secondary)
+                    .lineLimit(2)
             }
-            .width(min: 80, ideal: 120)
+            .width(min: 100, ideal: 160)
 
             TableColumn("来源") { word in
                 Text(word.source == "google" ? "Google" : (word.source == "mock" ? "示例" : word.source))
@@ -310,12 +327,25 @@ struct ContentView: View {
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .contextMenu(forSelectionType: Word.ID.self) { ids in
             if !ids.isEmpty {
-                Menu("移动到组") {
-                    Button("未分组") { move(ids: ids, to: nil) }
+                Menu("加入分组") {
                     ForEach(groups, id: \.uuid) { group in
-                        Button(group.name) { move(ids: ids, to: group) }
+                        Button(group.name) { add(ids: ids, to: group) }
                     }
                 }
+                Menu("仅保留此组") {
+                    ForEach(groups, id: \.uuid) { group in
+                        Button(group.name) { replace(ids: ids, with: group) }
+                    }
+                }
+                if let currentGroup {
+                    Button("移出「\(currentGroup.name)」") {
+                        remove(ids: ids, from: currentGroup)
+                    }
+                }
+                Button("清空全部分组") {
+                    clearGroups(ids: ids)
+                }
+                Divider()
                 Button("删除", role: .destructive) {
                     selectedWordIDs = ids
                     deleteSelected()
@@ -327,8 +357,7 @@ struct ContentView: View {
     // MARK: - Actions
 
     private func nextDefaultGroupName() -> String {
-        let index = groups.count + 1
-        return "第\(index)组"
+        "第\(groups.count + 1)组"
     }
 
     private func createGroup() {
@@ -347,8 +376,10 @@ struct ContentView: View {
     }
 
     private func deleteGroup(_ group: WordGroup) {
-        for word in group.words {
-            word.group = nil
+        // Removing the group drops membership; words remain in the library.
+        let members = Array(group.words)
+        for word in members {
+            word.removeFromGroup(group)
         }
         if case .group(let id) = selection, id == group.uuid {
             selection = .all
@@ -357,20 +388,60 @@ struct ContentView: View {
         try? modelContext.save()
     }
 
-    private func moveSelected(to group: WordGroup?) {
-        move(ids: selectedWordIDs, to: group)
+    private func selectedWords(from ids: Set<Word.ID>) -> [Word] {
+        allWords.filter { ids.contains($0.persistentModelID) }
     }
 
-    private func move(ids: Set<Word.ID>, to group: WordGroup?) {
-        for word in allWords where ids.contains(word.persistentModelID) {
-            word.group = group
+    private func addSelected(to group: WordGroup) {
+        add(ids: selectedWordIDs, to: group)
+    }
+
+    private func add(ids: Set<Word.ID>, to group: WordGroup) {
+        for word in selectedWords(from: ids) {
+            word.addToGroup(group)
         }
         try? modelContext.save()
-        AppLog.console("移动 \(ids.count) 个单词 → \(group?.name ?? "未分组")", category: "Groups")
+        AppLog.console("加入分组 \(ids.count) 个 → \(group.name)", category: "Groups")
+    }
+
+    private func replaceSelected(with group: WordGroup) {
+        replace(ids: selectedWordIDs, with: group)
+    }
+
+    private func replace(ids: Set<Word.ID>, with group: WordGroup) {
+        for word in selectedWords(from: ids) {
+            word.setGroups([group])
+        }
+        try? modelContext.save()
+        AppLog.console("仅保留分组 \(ids.count) 个 → \(group.name)", category: "Groups")
+    }
+
+    private func removeSelected(from group: WordGroup) {
+        remove(ids: selectedWordIDs, from: group)
+    }
+
+    private func remove(ids: Set<Word.ID>, from group: WordGroup) {
+        for word in selectedWords(from: ids) {
+            word.removeFromGroup(group)
+        }
+        try? modelContext.save()
+        AppLog.console("移出分组 \(ids.count) 个 ← \(group.name)", category: "Groups")
+    }
+
+    private func clearSelectedGroups() {
+        clearGroups(ids: selectedWordIDs)
+    }
+
+    private func clearGroups(ids: Set<Word.ID>) {
+        for word in selectedWords(from: ids) {
+            word.setGroups([])
+        }
+        try? modelContext.save()
+        AppLog.console("清空分组 \(ids.count) 个", category: "Groups")
     }
 
     private func deleteSelected() {
-        for word in allWords where selectedWordIDs.contains(word.persistentModelID) {
+        for word in selectedWords(from: selectedWordIDs) {
             modelContext.delete(word)
         }
         selectedWordIDs.removeAll()

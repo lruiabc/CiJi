@@ -8,7 +8,8 @@ final class WordGroup {
     var capacity: Int
     var sortOrder: Int
     var createdAt: Date
-    @Relationship(deleteRule: .nullify, inverse: \Word.group)
+
+    /// Inverse of `Word.groups` (many-to-many).
     var words: [Word]
 
     init(name: String, capacity: Int = 20, sortOrder: Int = 0) {

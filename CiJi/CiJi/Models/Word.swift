@@ -10,7 +10,10 @@ final class Word {
     var createdAt: Date
     var sortOrder: Int
     var source: String
-    var group: WordGroup?
+
+    /// A word may belong to zero or more groups.
+    @Relationship(inverse: \WordGroup.words)
+    var groups: [WordGroup]
 
     init(
         english: String,
@@ -18,7 +21,7 @@ final class Word {
         chinese: String = "",
         sortOrder: Int = 0,
         source: String = "google",
-        group: WordGroup? = nil
+        groups: [WordGroup] = []
     ) {
         self.uuid = UUID()
         self.english = english.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -27,6 +30,30 @@ final class Word {
         self.createdAt = Date()
         self.sortOrder = sortOrder
         self.source = source
-        self.group = group
+        self.groups = groups
+    }
+
+    var isUngrouped: Bool { groups.isEmpty }
+
+    var groupNamesText: String {
+        let names = groups.map(\.name).sorted()
+        return names.isEmpty ? "未分组" : names.joined(separator: "、")
+    }
+
+    func belongs(to group: WordGroup) -> Bool {
+        groups.contains(where: { $0.uuid == group.uuid })
+    }
+
+    func addToGroup(_ group: WordGroup) {
+        guard !belongs(to: group) else { return }
+        groups.append(group)
+    }
+
+    func removeFromGroup(_ group: WordGroup) {
+        groups.removeAll { $0.uuid == group.uuid }
+    }
+
+    func setGroups(_ newGroups: [WordGroup]) {
+        groups = newGroups
     }
 }
