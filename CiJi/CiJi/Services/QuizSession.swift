@@ -192,9 +192,16 @@ final class QuizSession: ObservableObject {
     }
 
     private func eligibleItems(for scope: Scope, allWords: [Word], groups: [WordGroup]) -> [Item] {
-        sourceWords(for: scope, allWords: allWords, groups: groups)
+        var words = sourceWords(for: scope, allWords: allWords, groups: groups)
             .filter { !$0.chinese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .map { Item(id: $0.uuid, english: $0.english, phonetic: $0.phonetic, chinese: $0.chinese) }
+        // Deterministic base order for “顺序” mode.
+        words.sort {
+            if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+            return $0.english < $1.english
+        }
+        return words.map {
+            Item(id: $0.uuid, english: $0.english, phonetic: $0.phonetic, chinese: $0.chinese)
+        }
     }
 
     private func sourceWords(for scope: Scope, allWords: [Word], groups: [WordGroup]) -> [Word] {
