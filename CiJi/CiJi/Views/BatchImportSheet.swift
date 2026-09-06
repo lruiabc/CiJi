@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+import os
+
+private let batchLog = Logger(subsystem: "app.ciji.mac", category: "BatchImport")
 
 private struct ImportDraft: Identifiable, Equatable {
     let id = UUID()
@@ -7,16 +10,12 @@ private struct ImportDraft: Identifiable, Equatable {
     var phonetic: String = ""
     var chinese: String = ""
     var source: String = ""
-    var groupID: UUID?
+    var groupChoice: GroupChoice = .none
     var status: Status = .pending
     var message: String?
 
     enum Status: Equatable {
-        case pending
-        case loading
-        case ready
-        case failed
-        case skipped
+        case pending, loading, ready, failed, skipped
     }
 }
 
@@ -33,12 +32,15 @@ struct BatchImportSheet: View {
 
     @State private var rawText = ""
     @State private var drafts: [ImportDraft] = []
-    @State private var defaultGroupID: UUID?
+    @State private var defaultGroupChoice: GroupChoice = .none
     @State private var isLookingUp = false
     @State private var progressDone = 0
     @State private var progressTotal = 0
     @State private var statusMessage: String?
     @State private var didSave = false
+    @State private var lookupTask: Task<Void, Never>?
+
+    private let maxConcurrentLookups = 3
 
     var body: some View {
         NavigationStack {
@@ -52,10 +54,13 @@ struct BatchImportSheet: View {
             .navigationTitle("批量导入")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
+                    Button(isLookingUp ? "停止" : "取消") {
+                        if isLookingUp {
+                            cancelLookup()
+                        } else {
+                            dismiss()
+                        }
                     }
-                    .disabled(isLookingUp)
                 }
                 if !drafts.isEmpty {
                     ToolbarItem(placement: .confirmationAction) {
@@ -65,8 +70,9 @@ struct BatchImportSheet: View {
                 }
             }
             .onAppear {
-                defaultGroupID = preferredGroup?.uuid
+                defaultGroupChoice = GroupChoice(uuid: preferredGroup?.uuid)
             }
+            .onDisappear { cancelLookup() }
             .alert("导入完成", isPresented: $didSave) {
                 Button("好") { dismiss() }
             } message: {
@@ -75,8 +81,6 @@ struct BatchImportSheet: View {
         }
         .frame(minWidth: 720, minHeight: 520)
     }
-
-    // MARK: - Input
 
     private var inputPhase: some View {
         Form {
@@ -93,18 +97,18 @@ struct BatchImportSheet: View {
             }
 
             Section("默认分组") {
-                Picker("放入", selection: $defaultGroupID) {
-                    Text("未分组").tag(UUID?.none)
+                Picker("放入", selection: $defaultGroupChoice) {
+                    Text("未分组").tag(GroupChoice.none)
                     ForEach(groups, id: \.uuid) { group in
                         Text("\(group.name)（\(group.wordCount)/\(group.capacity)）")
-                            .tag(Optional(group.uuid))
+                            .tag(GroupChoice.group(group.uuid))
                     }
                 }
             }
 
             Section {
                 Button {
-                    Task { await prepareAndLookup() }
+                    lookupTask = Task { await prepareAndLookup() }
                 } label: {
                     Label("解析并查询释义", systemImage: "magnifyingglass")
                 }
@@ -115,8 +119,6 @@ struct BatchImportSheet: View {
         .padding()
     }
 
-    // MARK: - Preview
-
     private var previewPhase: some View {
         VStack(spacing: 0) {
             HStack {
@@ -126,6 +128,7 @@ struct BatchImportSheet: View {
                     Text("查询中 \(progressDone)/\(progressTotal)")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                    Button("停止") { cancelLookup() }
                 } else {
                     Text("可保存 \(readyCount) 个 · 跳过 \(skippedCount) · 失败 \(failedCount)")
                         .font(.callout)
@@ -133,6 +136,7 @@ struct BatchImportSheet: View {
                 }
                 Spacer()
                 Button("重新编辑文本") {
+                    cancelLookup()
                     drafts = []
                 }
                 .disabled(isLookingUp)
@@ -170,15 +174,15 @@ struct BatchImportSheet: View {
 
                 TableColumn("分组") { draft in
                     Picker("", selection: bindingGroup(for: draft.id)) {
-                        Text("未分组").tag(UUID?.none)
+                        Text("未分组").tag(GroupChoice.none)
                         ForEach(groups, id: \.uuid) { group in
-                            Text(group.name).tag(Optional(group.uuid))
+                            Text(group.name).tag(GroupChoice.group(group.uuid))
                         }
                     }
                     .labelsHidden()
                     .disabled(draft.status == .skipped || isLookingUp)
                 }
-                .width(min: 100, ideal: 140)
+                .width(min: 110, ideal: 150)
 
                 TableColumn("状态") { draft in
                     statusLabel(draft.status)
@@ -189,12 +193,12 @@ struct BatchImportSheet: View {
         }
     }
 
-    private func bindingGroup(for id: UUID) -> Binding<UUID?> {
+    private func bindingGroup(for id: UUID) -> Binding<GroupChoice> {
         Binding(
-            get: { drafts.first(where: { $0.id == id })?.groupID },
+            get: { drafts.first(where: { $0.id == id })?.groupChoice ?? .none },
             set: { newValue in
                 if let idx = drafts.firstIndex(where: { $0.id == id }) {
-                    drafts[idx].groupID = newValue
+                    drafts[idx].groupChoice = newValue
                 }
             }
         )
@@ -215,8 +219,17 @@ struct BatchImportSheet: View {
     private var failedCount: Int { drafts.filter { $0.status == .failed }.count }
     private var skippedCount: Int { drafts.filter { $0.status == .skipped }.count }
 
-    // MARK: - Logic
+    private func cancelLookup() {
+        lookupTask?.cancel()
+        lookupTask = nil
+        if isLookingUp {
+            isLookingUp = false
+            batchLog.info("Batch lookup cancelled")
+            AppLog.console("批量查询已取消", category: "BatchImport")
+        }
+    }
 
+    @MainActor
     private func prepareAndLookup() async {
         let existing = Set(existingWords.map(\.english))
         let lines = rawText
@@ -227,14 +240,13 @@ struct BatchImportSheet: View {
         var seen = Set<String>()
         var built: [ImportDraft] = []
         for line in lines {
-            // Allow "word, extra" — take first token
             let token = line.split(whereSeparator: { $0 == "," || $0 == "\t" || $0 == " " }).first.map(String.init) ?? line
             let english = token.lowercased()
             guard !english.isEmpty else { continue }
             if seen.contains(english) { continue }
             seen.insert(english)
 
-            var draft = ImportDraft(english: english, groupID: defaultGroupID)
+            var draft = ImportDraft(english: english, groupChoice: defaultGroupChoice)
             if existing.contains(english) {
                 draft.status = .skipped
                 draft.message = "词库已存在"
@@ -243,10 +255,16 @@ struct BatchImportSheet: View {
         }
 
         drafts = built
-        let toFetch = built.indices.filter { built[$0].status != .skipped }
-        progressTotal = toFetch.count
+        let fetchIndices = built.indices.filter { built[$0].status != .skipped }
+        progressTotal = fetchIndices.count
         progressDone = 0
         isLookingUp = true
+
+        batchLog.info("Batch start: \(built.count) drafts, \(fetchIndices.count) to fetch")
+        AppLog.console(
+            "开始批量查询 \(fetchIndices.count) 个单词（并发 \(maxConcurrentLookups)）",
+            category: "BatchImport"
+        )
 
         let service = YoudaoDictionaryService(
             appKey: settings.youdaoAppKey,
@@ -254,30 +272,64 @@ struct BatchImportSheet: View {
             allowMockFallback: settings.useMockWhenNoKey
         )
 
-        for index in toFetch {
-            drafts[index].status = .loading
-            do {
-                let result = try await service.lookup(word: drafts[index].english)
-                drafts[index].phonetic = result.phonetic
-                drafts[index].chinese = result.chinese
-                drafts[index].source = result.source
-                drafts[index].status = .ready
-            } catch {
-                drafts[index].status = .failed
-                drafts[index].message = error.localizedDescription
+        var offset = 0
+        while offset < fetchIndices.count {
+            if Task.isCancelled { break }
+            let end = min(offset + maxConcurrentLookups, fetchIndices.count)
+            let chunk = Array(fetchIndices[offset..<end])
+
+            for index in chunk {
+                drafts[index].status = .loading
             }
-            progressDone += 1
-            // Gentle pacing to avoid hammering the API
-            try? await Task.sleep(nanoseconds: 120_000_000)
+
+            await withTaskGroup(of: (Int, Result<DictionaryLookupResult, Error>).self) { group in
+                for index in chunk {
+                    let word = drafts[index].english
+                    group.addTask {
+                        do {
+                            let result = try await service.lookup(word: word)
+                            return (index, .success(result))
+                        } catch {
+                            return (index, .failure(error))
+                        }
+                    }
+                }
+
+                for await (index, result) in group {
+                    if Task.isCancelled { break }
+                    switch result {
+                    case .success(let lookup):
+                        drafts[index].phonetic = lookup.phonetic
+                        drafts[index].chinese = lookup.chinese
+                        drafts[index].source = lookup.source
+                        drafts[index].status = .ready
+                    case .failure(let error):
+                        drafts[index].status = .failed
+                        drafts[index].message = error.localizedDescription
+                        batchLog.error(
+                            "Fail \(drafts[index].english, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
+                    progressDone += 1
+                }
+            }
+
+            offset = end
         }
 
         isLookingUp = false
+        lookupTask = nil
+        batchLog.info("Batch finished: ready=\(self.readyCount) failed=\(self.failedCount)")
+        AppLog.console(
+            "批量查询结束：就绪 \(readyCount)，失败 \(failedCount)",
+            category: "BatchImport"
+        )
     }
 
     private func commit() {
         var saved = 0
         for draft in drafts where draft.status == .ready {
-            let group = groups.first { $0.uuid == draft.groupID }
+            let group = groups.first { $0.uuid == draft.groupChoice.uuid }
             let word = Word(
                 english: draft.english,
                 phonetic: draft.phonetic,
@@ -286,7 +338,12 @@ struct BatchImportSheet: View {
                 group: group
             )
             modelContext.insert(word)
+            word.group = group
             saved += 1
+            AppLog.console(
+                "写入 \(draft.english) → 组 \(group?.name ?? "未分组")，中文=\(draft.chinese)",
+                category: "BatchImport"
+            )
         }
         try? modelContext.save()
         statusMessage = "成功写入 \(saved) 个单词。"

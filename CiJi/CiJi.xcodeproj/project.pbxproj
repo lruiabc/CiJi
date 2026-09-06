@@ -10,6 +10,8 @@
 		A10000000000000000000001 /* CiJiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* CiJiApp.swift */; };
 		A10000000000000000000002 /* Word.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* Word.swift */; };
 		A10000000000000000000003 /* WordGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* WordGroup.swift */; };
+		A10000000000000000000011 /* GroupChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* GroupChoice.swift */; };
+		A10000000000000000000012 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* AppLog.swift */; };
 		A10000000000000000000004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* SettingsStore.swift */; };
 		A10000000000000000000005 /* YoudaoDictionaryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* YoudaoDictionaryService.swift */; };
 		A10000000000000000000006 /* PronunciationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* PronunciationService.swift */; };
@@ -36,6 +38,8 @@
 		B10000000000000000000001 /* CiJiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CiJiApp.swift; sourceTree = "<group>"; };
 		B10000000000000000000002 /* Word.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Word.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* WordGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordGroup.swift; sourceTree = "<group>"; };
+		B10000000000000000000011 /* GroupChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChoice.swift; sourceTree = "<group>"; };
+		B10000000000000000000012 /* AppLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLog.swift; sourceTree = "<group>"; };
 		B10000000000000000000004 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		B10000000000000000000005 /* YoudaoDictionaryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoudaoDictionaryService.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* PronunciationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PronunciationService.swift; sourceTree = "<group>"; };
@@ -96,6 +100,7 @@
 			children = (
 				B10000000000000000000002 /* Word.swift */,
 				B10000000000000000000003 /* WordGroup.swift */,
+				B10000000000000000000011 /* GroupChoice.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -106,6 +111,7 @@
 				B10000000000000000000004 /* SettingsStore.swift */,
 				B10000000000000000000005 /* YoudaoDictionaryService.swift */,
 				B10000000000000000000006 /* PronunciationService.swift */,
+				B10000000000000000000012 /* AppLog.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -242,6 +248,8 @@
 				A10000000000000000000001 /* CiJiApp.swift in Sources */,
 				A10000000000000000000002 /* Word.swift in Sources */,
 				A10000000000000000000003 /* WordGroup.swift in Sources */,
+				A10000000000000000000011 /* GroupChoice.swift in Sources */,
+				A10000000000000000000012 /* AppLog.swift in Sources */,
 				A10000000000000000000004 /* SettingsStore.swift in Sources */,
 				A10000000000000000000005 /* YoudaoDictionaryService.swift in Sources */,
 				A10000000000000000000006 /* PronunciationService.swift in Sources */,

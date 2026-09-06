@@ -71,7 +71,7 @@ struct ContentView: View {
             Button("取消", role: .cancel) { newGroupName = "" }
             Button("创建") { createGroup() }
         } message: {
-            Text("每组默认容量为 \(settings.defaultGroupCapacity) 个单词，可在侧栏菜单中修改。")
+            Text("每组默认容量为 \(settings.defaultGroupCapacity) 个单词，可在设置中修改。")
         }
         .alert(
             "重命名分组",
@@ -343,6 +343,7 @@ struct ContentView: View {
         try? modelContext.save()
         selection = .group(group.uuid)
         newGroupName = ""
+        AppLog.console("创建分组 \(name)", category: "Groups")
     }
 
     private func deleteGroup(_ group: WordGroup) {
@@ -365,6 +366,7 @@ struct ContentView: View {
             word.group = group
         }
         try? modelContext.save()
+        AppLog.console("移动 \(ids.count) 个单词 → \(group?.name ?? "未分组")", category: "Groups")
     }
 
     private func deleteSelected() {

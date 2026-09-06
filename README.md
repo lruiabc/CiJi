@@ -47,6 +47,20 @@
 | 改组 | 选中单词 →「移动到组」，或右键菜单 |
 | 新建分组 | 侧栏底部「新建分组」 |
 
+## 查看运行日志
+
+云端环境**看不到**你本机 Mac 的实时日志。请在 Xcode 查看：
+
+1. 运行 App 后打开 **View → Debug Area → Activate Console**（或 `⇧⌘C`）
+2. 日志前缀为 `[词记/…]`，批量导入、查词、分组写入都会打印
+3. 也可在 macOS「控制台」App 中过滤子系统 `app.ciji.mac`
+
+## 近期修复（功能 1）
+
+1. **批量导入卡住**：改为最多 3 路并发查询、可「停止」、单次请求超时约 12 秒，避免顺序请求把界面卡死  
+2. **中文/音标字段**：优先取有道 `basic.explains`（词典释义），其次 `translation`，再次 `web`；音标取 `phonetic` / `us-phonetic` / `uk-phonetic`  
+3. **单词无法进组**：分组选择改用 `GroupChoice`（避免 macOS 上 `UUID?` Picker 标签匹配失败），保存时显式写入 `word.group`
+
 ## 项目结构
 
 ```

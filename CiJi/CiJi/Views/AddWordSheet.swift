@@ -13,7 +13,7 @@ struct AddWordSheet: View {
     var preferredGroup: WordGroup?
 
     @State private var input = ""
-    @State private var selectedGroupID: UUID?
+    @State private var groupChoice: GroupChoice = .none
     @State private var preview: DictionaryLookupResult?
     @State private var isLookingUp = false
     @State private var errorMessage: String?
@@ -83,20 +83,18 @@ struct AddWordSheet: View {
                 }
 
                 Section("放入分组") {
-                    Picker("目标分组", selection: $selectedGroupID) {
-                        Text("未分组").tag(UUID?.none)
+                    Picker("目标分组", selection: $groupChoice) {
+                        Text("未分组").tag(GroupChoice.none)
                         ForEach(groups, id: \.uuid) { group in
                             Text("\(group.name)（\(group.wordCount)/\(group.capacity)）")
-                                .tag(Optional(group.uuid))
+                                .tag(GroupChoice.group(group.uuid))
                         }
                     }
 
-                    if let group = selectedGroup {
-                        if group.wordCount >= group.capacity {
-                            Text("该组已满（\(group.capacity)）。仍可强制加入，建议新建分组或提高容量。")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                        }
+                    if let group = selectedGroup, group.wordCount >= group.capacity {
+                        Text("该组已满（\(group.capacity)）。仍可强制加入，建议新建分组或提高容量。")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
                     }
                 }
             }
@@ -114,7 +112,7 @@ struct AddWordSheet: View {
                 }
             }
             .onAppear {
-                selectedGroupID = preferredGroup?.uuid
+                groupChoice = GroupChoice(uuid: preferredGroup?.uuid)
             }
             .alert("已加入词库", isPresented: $saveSucceeded) {
                 Button("继续添加") {
@@ -132,8 +130,8 @@ struct AddWordSheet: View {
     }
 
     private var selectedGroup: WordGroup? {
-        guard let selectedGroupID else { return nil }
-        return groups.first { $0.uuid == selectedGroupID }
+        guard let id = groupChoice.uuid else { return nil }
+        return groups.first { $0.uuid == id }
     }
 
     private func dictionaryService() -> YoudaoDictionaryService {
@@ -160,11 +158,16 @@ struct AddWordSheet: View {
         do {
             let result = try await dictionaryService().lookup(word: word)
             preview = result
+            AppLog.console(
+                "查词 \(result.english) | 音标=\(result.phonetic) | 中文=\(result.chinese) | 来源=\(result.source)",
+                category: "AddWord"
+            )
             if result.source == "mock" {
                 infoMessage = DictionaryServiceError.missingCredentials.errorDescription
             }
         } catch {
             errorMessage = error.localizedDescription
+            AppLog.console("查词失败：\(error.localizedDescription)", category: "AddWord")
         }
     }
 
@@ -176,15 +179,18 @@ struct AddWordSheet: View {
             return
         }
 
+        let group = selectedGroup
         let word = Word(
             english: preview.english,
             phonetic: preview.phonetic,
             chinese: preview.chinese,
             source: preview.source,
-            group: selectedGroup
+            group: group
         )
         modelContext.insert(word)
+        word.group = group
         try? modelContext.save()
+        AppLog.console("保存 \(english) → 组 \(group?.name ?? "未分组")", category: "AddWord")
         saveSucceeded = true
     }
 }

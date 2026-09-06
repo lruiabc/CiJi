@@ -1,21 +1,24 @@
 import Foundation
 import CryptoKit
+import os
 
-struct DictionaryLookupResult: Equatable {
+private let youdaoLog = Logger(subsystem: "app.ciji.mac", category: "Youdao")
+
+struct DictionaryLookupResult: Equatable, Sendable {
     var english: String
     var phonetic: String
     var chinese: String
     var source: String
 }
 
-enum DictionaryServiceError: LocalizedError {
+enum DictionaryServiceError: LocalizedError, Sendable {
     case emptyQuery
     case invalidURL
     case httpStatus(Int)
     case apiError(String)
-    case decoding
+    case decoding(String)
     case missingCredentials
-    case cancelled
+    case timeout
 
     var errorDescription: String? {
         switch self {
@@ -27,37 +30,45 @@ enum DictionaryServiceError: LocalizedError {
             return "网络错误（HTTP \(code)）"
         case .apiError(let message):
             return message
-        case .decoding:
-            return "解析词典结果失败"
+        case .decoding(let detail):
+            return "解析词典结果失败：\(detail)"
         case .missingCredentials:
-            return "尚未配置有道 API Key，已使用本地示例释义。可在设置中填写真实密钥。"
-        case .cancelled:
-            return "已取消"
+            return "尚未配置有道 API Key。可在设置中填写密钥，或开启本地示例释义。"
+        case .timeout:
+            return "查询超时，请检查网络后重试"
         }
     }
 }
 
-protocol DictionaryLooking {
-    func lookup(word: String) async throws -> DictionaryLookupResult
-}
-
-/// 有道智云翻译/词典 API + 无 Key 时的本地 mock。
-final class YoudaoDictionaryService: DictionaryLooking, @unchecked Sendable {
+/// 有道智云文本翻译/词典 API（https://openapi.youdao.com/api）
+final class YoudaoDictionaryService: @unchecked Sendable {
     private let appKey: String
     private let appSecret: String
     private let allowMockFallback: Bool
     private let session: URLSession
+    private let requestTimeout: TimeInterval
 
     init(
         appKey: String,
         appSecret: String,
         allowMockFallback: Bool = true,
-        session: URLSession = .shared
+        session: URLSession? = nil,
+        requestTimeout: TimeInterval = 12
     ) {
         self.appKey = appKey.trimmingCharacters(in: .whitespacesAndNewlines)
         self.appSecret = appSecret.trimmingCharacters(in: .whitespacesAndNewlines)
         self.allowMockFallback = allowMockFallback
-        self.session = session
+        self.requestTimeout = requestTimeout
+
+        if let session {
+            self.session = session
+        } else {
+            let config = URLSessionConfiguration.ephemeral
+            config.timeoutIntervalForRequest = requestTimeout
+            config.timeoutIntervalForResource = requestTimeout + 5
+            config.waitsForConnectivity = false
+            self.session = URLSession(configuration: config)
+        }
     }
 
     func lookup(word: String) async throws -> DictionaryLookupResult {
@@ -66,21 +77,13 @@ final class YoudaoDictionaryService: DictionaryLooking, @unchecked Sendable {
 
         if appKey.isEmpty || appSecret.isEmpty {
             if allowMockFallback {
+                youdaoLog.info("No API key — mock result for \(query, privacy: .public)")
                 return Self.mockResult(for: query)
             }
             throw DictionaryServiceError.missingCredentials
         }
 
-        do {
-            return try await lookupFromYoudao(query: query)
-        } catch {
-            if allowMockFallback, error is DictionaryServiceError {
-                // Keep real errors when credentials exist; only mock on network/API failure if desired.
-                // Prefer surfacing API errors so the user can fix keys.
-                throw error
-            }
-            throw error
-        }
+        return try await lookupFromYoudao(query: query)
     }
 
     private func lookupFromYoudao(query: String) async throws -> DictionaryLookupResult {
@@ -104,56 +107,116 @@ final class YoudaoDictionaryService: DictionaryLooking, @unchecked Sendable {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.timeoutInterval = 20
+        request.timeoutInterval = requestTimeout
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await session.data(for: request)
+        youdaoLog.debug("Lookup start: \(query, privacy: .public)")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch let urlError as URLError where urlError.code == .timedOut {
+            youdaoLog.error("Lookup timeout: \(query, privacy: .public)")
+            throw DictionaryServiceError.timeout
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            youdaoLog.error("Lookup network error: \(error.localizedDescription, privacy: .public)")
+            throw error
+        }
+
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            youdaoLog.error("HTTP \(http.statusCode) for \(query, privacy: .public)")
             throw DictionaryServiceError.httpStatus(http.statusCode)
+        }
+
+        if let raw = String(data: data, encoding: .utf8) {
+            let preview = raw.count > 500 ? String(raw.prefix(500)) + "…" : raw
+            youdaoLog.debug("Raw response: \(preview, privacy: .public)")
         }
 
         let decoded: YoudaoAPIResponse
         do {
             decoded = try JSONDecoder().decode(YoudaoAPIResponse.self, from: data)
         } catch {
-            throw DictionaryServiceError.decoding
+            youdaoLog.error("Decode failed: \(error.localizedDescription, privacy: .public)")
+            throw DictionaryServiceError.decoding(error.localizedDescription)
         }
 
         guard decoded.errorCode == "0" else {
-            throw DictionaryServiceError.apiError(Self.message(forErrorCode: decoded.errorCode))
+            let message = Self.message(forErrorCode: decoded.errorCode)
+            youdaoLog.error("API errorCode=\(decoded.errorCode, privacy: .public) \(message, privacy: .public)")
+            throw DictionaryServiceError.apiError(message)
         }
 
-        let phonetic = decoded.basic?.phonetic
-            ?? decoded.basic?.usPhonetic
-            ?? decoded.basic?.ukPhonetic
-            ?? ""
+        // 字段优先级：词典释义 basic.explains > 翻译 translation > 网络释义 web
+        let phonetic = Self.pickPhonetic(from: decoded.basic)
+        let chinese = Self.pickChinese(from: decoded)
 
-        let chinese: String
-        if let explains = decoded.basic?.explains, !explains.isEmpty {
-            chinese = explains.joined(separator: "；")
-        } else if let translation = decoded.translation, !translation.isEmpty {
-            chinese = translation.joined(separator: "；")
-        } else {
-            chinese = ""
-        }
+        youdaoLog.info(
+            "Lookup ok \(query, privacy: .public): phonetic=\(phonetic, privacy: .public) chinese=\(chinese, privacy: .public)"
+        )
 
         return DictionaryLookupResult(
             english: query.lowercased(),
-            phonetic: phonetic.isEmpty ? "" : "/\(phonetic.trimmingCharacters(in: CharacterSet(charactersIn: "/")))/",
+            phonetic: phonetic,
             chinese: chinese,
             source: "youdao"
         )
     }
 
+    /// 音标：phonetic → us-phonetic → uk-phonetic
+    static func pickPhonetic(from basic: YoudaoBasic?) -> String {
+        guard let basic else { return "" }
+        let raw = basic.phonetic ?? basic.usPhonetic ?? basic.ukPhonetic ?? ""
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        let bare = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return "/\(bare)/"
+    }
+
+    /// 中文：explains（词典）→ translation（翻译）→ web（网络释义）
+    static func pickChinese(from response: YoudaoAPIResponse) -> String {
+        if let explains = response.basic?.explains?
+            .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .filter({ !$0.isEmpty }),
+           !explains.isEmpty {
+            return explains.joined(separator: "；")
+        }
+
+        if let translation = response.translation?
+            .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .filter({ !$0.isEmpty }),
+           !translation.isEmpty {
+            return translation.joined(separator: "；")
+        }
+
+        if let web = response.web, !web.isEmpty {
+            let parts = web.prefix(3).compactMap { item -> String? in
+                let values = item.value
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                guard !values.isEmpty else { return nil }
+                let key = item.key.trimmingCharacters(in: .whitespacesAndNewlines)
+                if key.isEmpty { return values.joined(separator: "、") }
+                return "\(key)：\(values.joined(separator: "、"))"
+            }
+            if !parts.isEmpty {
+                return parts.joined(separator: "；")
+            }
+        }
+
+        return ""
+    }
+
     // MARK: - Signing (Youdao v3)
 
-    /// input truncation rules from Youdao docs:
-    /// if q length > 20: first10 + length + last10; else q itself.
+    /// q 长度 ≤20 用原文；>20 用 前10 + 长度 + 后10
     static func inputForSign(_ query: String) -> String {
         let chars = Array(query)
         if chars.count <= 20 { return query }
-        let head = String(chars.prefix(10))
-        let tail = String(chars.suffix(10))
-        return "\(head)\(chars.count)\(tail)"
+        return "\(String(chars.prefix(10)))\(chars.count)\(String(chars.suffix(10)))"
     }
 
     static func sign(appKey: String, query: String, salt: String, curtime: String, appSecret: String) -> String {
@@ -226,14 +289,56 @@ final class YoudaoDictionaryService: DictionaryLooking, @unchecked Sendable {
 
 // MARK: - API DTOs
 
-private struct YoudaoAPIResponse: Decodable {
+struct YoudaoAPIResponse: Decodable, Sendable {
     let errorCode: String
     let translation: [String]?
     let basic: YoudaoBasic?
     let query: String?
+    let web: [YoudaoWebItem]?
+
+    enum CodingKeys: String, CodingKey {
+        case errorCode
+        case translation
+        case basic
+        case query
+        case web
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // errorCode 可能是 "0" 或 0
+        if let stringCode = try? container.decode(String.self, forKey: .errorCode) {
+            errorCode = stringCode
+        } else if let intCode = try? container.decode(Int.self, forKey: .errorCode) {
+            errorCode = String(intCode)
+        } else {
+            errorCode = "-1"
+        }
+
+        translation = try container.decodeIfPresent([String].self, forKey: .translation)
+        basic = try container.decodeIfPresent(YoudaoBasic.self, forKey: .basic)
+        query = try container.decodeIfPresent(String.self, forKey: .query)
+        web = try container.decodeIfPresent([YoudaoWebItem].self, forKey: .web)
+    }
+
+    /// 测试/预览用
+    init(
+        errorCode: String,
+        translation: [String]? = nil,
+        basic: YoudaoBasic? = nil,
+        query: String? = nil,
+        web: [YoudaoWebItem]? = nil
+    ) {
+        self.errorCode = errorCode
+        self.translation = translation
+        self.basic = basic
+        self.query = query
+        self.web = web
+    }
 }
 
-private struct YoudaoBasic: Decodable {
+struct YoudaoBasic: Decodable, Sendable {
     let phonetic: String?
     let ukPhonetic: String?
     let usPhonetic: String?
@@ -244,5 +349,26 @@ private struct YoudaoBasic: Decodable {
         case ukPhonetic = "uk-phonetic"
         case usPhonetic = "us-phonetic"
         case explains
+    }
+
+    init(
+        phonetic: String? = nil,
+        ukPhonetic: String? = nil,
+        usPhonetic: String? = nil,
+        explains: [String]? = nil
+    ) {
+        self.phonetic = phonetic
+        self.ukPhonetic = ukPhonetic
+        self.usPhonetic = usPhonetic
+        self.explains = explains
+    }
+}
+
+struct YoudaoWebItem: Decodable, Sendable {
+    let key: String
+    let value: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case key, value
     }
 }
