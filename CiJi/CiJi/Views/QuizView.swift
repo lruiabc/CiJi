@@ -195,24 +195,25 @@ struct QuizView: View {
     private var columnHeader: some View {
         HStack(alignment: .center, spacing: 16) {
             Text("英文")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Image(systemName: "arrow.left.arrow.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 8, weight: .medium))
+                .foregroundStyle(.quaternary)
                 .frame(width: 20)
 
             Text("中文释义")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Color.clear.frame(width: 28)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .padding(.top, 4)
+        .padding(.bottom, 2)
     }
 
     private func answerRow(index: Int, prompt: QuizSession.Prompt) -> some View {
