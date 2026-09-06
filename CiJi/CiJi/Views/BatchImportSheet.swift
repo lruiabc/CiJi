@@ -241,15 +241,17 @@ struct BatchImportSheet: View {
         var built: [ImportDraft] = []
         for line in lines {
             let token = line.split(whereSeparator: { $0 == "," || $0 == "\t" || $0 == " " }).first.map(String.init) ?? line
-            let english = token.lowercased()
-            guard !english.isEmpty else { continue }
-            if seen.contains(english) { continue }
-            seen.insert(english)
+            let raw = token.lowercased()
+            guard !raw.isEmpty else { continue }
+            // Deduplicate by lemma so "runs" / "running" don't both enter.
+            let lemma = EnglishLemmatizer.lemma(for: raw)
+            if seen.contains(lemma) { continue }
+            seen.insert(lemma)
 
-            var draft = ImportDraft(english: english, groupChoice: defaultGroupChoice)
-            if existing.contains(english) {
+            var draft = ImportDraft(english: raw, groupChoice: defaultGroupChoice)
+            if existing.contains(lemma) {
                 draft.status = .skipped
-                draft.message = "词库已存在"
+                draft.message = "词库已有原型「\(lemma)」"
             }
             built.append(draft)
         }
@@ -295,10 +297,14 @@ struct BatchImportSheet: View {
                     if Task.isCancelled { break }
                     switch result {
                     case .success(let lookup):
+                        drafts[index].english = lookup.english
                         drafts[index].phonetic = lookup.phonetic
                         drafts[index].chinese = lookup.chinese
                         drafts[index].source = lookup.source
                         drafts[index].status = .ready
+                        if lookup.wasLemmatized, let inputForm = lookup.inputForm {
+                            drafts[index].message = "由 \(inputForm) 还原"
+                        }
                     case .failure(let error):
                         drafts[index].status = .failed
                         drafts[index].message = error.localizedDescription

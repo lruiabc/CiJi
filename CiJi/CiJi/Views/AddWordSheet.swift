@@ -53,6 +53,11 @@ struct AddWordSheet: View {
                                 SpeakButton(word: preview.english, size: 14, helpText: "试听发音")
                             }
                         }
+                        if preview.wasLemmatized, let inputForm = preview.inputForm {
+                            Text("已还原为原型（输入：\(inputForm)）")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         LabeledContent("音标") {
                             Text(preview.phonetic.isEmpty ? "—" : preview.phonetic)
                                 .font(.body.monospaced())
@@ -66,7 +71,7 @@ struct AddWordSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                     } else {
-                        Text("输入单词后点击「查询」，将显示音标、中文与发音按钮。")
+                        Text("输入单词任意形式均可。系统会还原为原型，并显示音标、中文与发音。")
                             .foregroundStyle(.secondary)
                     }
 
@@ -155,11 +160,19 @@ struct AddWordSheet: View {
             let result = try await dictionaryService().lookup(word: word)
             preview = result
             AppLog.console(
-                "查词 \(result.english) | 音标=\(result.phonetic) | 中文=\(result.chinese) | 来源=\(result.source)",
+                "查词 输入=\(word) → 原型=\(result.english) | 音标=\(result.phonetic) | 中文=\(result.chinese) | 来源=\(result.source)",
                 category: "AddWord"
             )
+            if result.wasLemmatized, let inputForm = result.inputForm {
+                infoMessage = "已将「\(inputForm)」还原为原型「\(result.english)」并保存该原型。"
+            }
             if result.source == "mock" {
-                infoMessage = "网络查询失败，已使用本地示例释义。可在设置中关闭该回退。"
+                let mockNote = "网络查询失败，已使用本地示例释义。可在设置中关闭该回退。"
+                infoMessage = [infoMessage, mockNote].compactMap { $0 }.joined(separator: " ")
+            }
+            if result.phonetic.isEmpty {
+                let phNote = "未找到音标（部分词 Google 不返回读音）。"
+                infoMessage = [infoMessage, phNote].compactMap { $0 }.joined(separator: " ")
             }
         } catch {
             errorMessage = error.localizedDescription

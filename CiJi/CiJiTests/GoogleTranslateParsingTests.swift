@@ -2,6 +2,27 @@ import Foundation
 import Testing
 @testable import CiJi
 
+struct EnglishLemmatizerTests {
+    @Test func irregularVerbs() {
+        #expect(EnglishLemmatizer.lemma(for: "went") == "go")
+        #expect(EnglishLemmatizer.lemma(for: "running") == "run")
+        #expect(EnglishLemmatizer.lemma(for: "better") == "good")
+        #expect(EnglishLemmatizer.lemma(for: "children") == "child")
+    }
+
+    @Test func regularInflections() {
+        #expect(EnglishLemmatizer.lemma(for: "apples") == "apple")
+        #expect(EnglishLemmatizer.lemma(for: "studied") == "study")
+        #expect(EnglishLemmatizer.lemma(for: "cities") == "city")
+        #expect(EnglishLemmatizer.lemma(for: "cats") == "cat")
+    }
+
+    @Test func alreadyLemmaUnchanged() {
+        #expect(EnglishLemmatizer.lemma(for: "apple") == "apple")
+        #expect(EnglishLemmatizer.lemma(for: "vocabulary") == "vocabulary")
+    }
+}
+
 struct GoogleTranslateParsingTests {
     @Test func parseSimpleTranslationArray() throws {
         let json = """
@@ -12,20 +33,14 @@ struct GoogleTranslateParsingTests {
         #expect(parsed.chinese == "苹果")
     }
 
-    @Test func parseDictionaryCombinedWithTranslation() throws {
+    @Test func extractPhoneticFromEnEnResponse() {
+        // Shape observed from Google en→en + dt=rm
         let json = """
-        [
-          [[["苹果","apple",null,null,10]]],
-          [
-            ["noun",["苹果","苹"],null,"apple",1]
-          ],
-          "en"
-        ]
+        [[["apple","apple",null,null,5],[null,null,null,"ˈap(ə)l"]],null,"en"]
         """.data(using: .utf8)!
 
-        let parsed = try GoogleTranslateService.parseResponse(data: json, query: "apple")
-        #expect(parsed.chinese.contains("苹果"))
-        #expect(parsed.chinese.contains("noun"))
+        let phonetic = GoogleTranslateService.extractPhonetic(from: json, query: "apple")
+        #expect(phonetic == "/ˈap(ə)l/")
     }
 
     @Test func mockResultContainsKnownWord() {

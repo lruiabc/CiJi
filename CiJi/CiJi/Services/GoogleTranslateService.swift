@@ -4,10 +4,18 @@ import os
 private let googleLog = Logger(subsystem: "app.ciji.mac", category: "GoogleTranslate")
 
 struct DictionaryLookupResult: Equatable, Sendable {
+    /// Always the lemma / dictionary headword stored in the DB.
     var english: String
     var phonetic: String
     var chinese: String
     var source: String
+    /// Original user input when it differs from the lemma (for UI hint).
+    var inputForm: String? = nil
+
+    var wasLemmatized: Bool {
+        guard let inputForm else { return false }
+        return inputForm.lowercased() != english.lowercased()
+    }
 }
 
 enum DictionaryServiceError: LocalizedError, Sendable {
@@ -32,8 +40,7 @@ enum DictionaryServiceError: LocalizedError, Sendable {
     }
 }
 
-/// Google Translate 免费接口（非官方，无需 API Key）。
-/// 优先使用 `clients5.google.com` + `dict-chrome-ex`（词典更完整、更不易被拦）。
+/// Google Translate free endpoints + English lemmatization + phonetic enrichment.
 final class GoogleTranslateService: @unchecked Sendable {
     private let allowMockFallback: Bool
     private let session: URLSession
@@ -63,62 +70,124 @@ final class GoogleTranslateService: @unchecked Sendable {
     }
 
     func lookup(word: String) async throws -> DictionaryLookupResult {
-        let query = word.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { throw DictionaryServiceError.emptyQuery }
+        let raw = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { throw DictionaryServiceError.emptyQuery }
+
+        let input = raw.lowercased()
+        let lemma = EnglishLemmatizer.lemma(for: input)
 
         do {
-            return try await lookupFromGoogle(query: query)
+            async let chineseTask = fetchChinese(for: lemma)
+            async let phoneticTask = fetchPhonetic(for: lemma)
+            let chinese = try await chineseTask
+            let phonetic = (try? await phoneticTask) ?? ""
+
+            guard !chinese.isEmpty else { throw DictionaryServiceError.emptyResult }
+
+            googleLog.info(
+                "Lookup ok input=\(input, privacy: .public) lemma=\(lemma, privacy: .public) phonetic=\(phonetic, privacy: .public) chinese=\(chinese, privacy: .public)"
+            )
+
+            return DictionaryLookupResult(
+                english: lemma,
+                phonetic: phonetic,
+                chinese: chinese,
+                source: "google",
+                inputForm: input == lemma ? nil : input
+            )
         } catch {
             if allowMockFallback, !(error is CancellationError) {
                 googleLog.error(
-                    "Lookup failed for \(query, privacy: .public): \(error.localizedDescription, privacy: .public) — using mock"
+                    "Lookup failed for \(input, privacy: .public): \(error.localizedDescription, privacy: .public) — using mock"
                 )
-                return Self.mockResult(for: query)
+                var mock = Self.mockResult(for: lemma)
+                mock.inputForm = input == lemma ? nil : input
+                return mock
             }
             throw error
         }
     }
 
-    private func lookupFromGoogle(query: String) async throws -> DictionaryLookupResult {
-        // Primary: Chrome dictionary client (richer payload, more reliable from many networks)
-        let primary = try await fetch(
-            hostPath: "https://clients5.google.com/translate_a/single",
+    // MARK: - Chinese (en → zh)
+
+    private func fetchChinese(for lemma: String) async throws -> String {
+        let primary = try await fetchTranslate(
             client: "dict-chrome-ex",
-            query: query,
+            sourceLang: "en",
+            targetLang: "zh-CN",
+            query: lemma,
             includeDictionary: true
         )
-        if !primary.chinese.isEmpty {
-            return DictionaryLookupResult(
-                english: query.lowercased(),
-                phonetic: primary.phonetic,
-                chinese: primary.chinese,
-                source: "google"
-            )
-        }
+        if !primary.chinese.isEmpty { return primary.chinese }
 
-        // Fallback: simple translation array endpoint
-        let fallback = try await fetchSimpleTranslation(query: query)
-        guard !fallback.isEmpty else { throw DictionaryServiceError.emptyResult }
-
-        return DictionaryLookupResult(
-            english: query.lowercased(),
-            phonetic: "",
-            chinese: fallback,
-            source: "google"
-        )
+        let simple = try await fetchSimpleTranslation(query: lemma)
+        return simple
     }
 
-    private func fetch(
-        hostPath: String,
+    // MARK: - Phonetic (en → en + dt=rm)
+
+    private func fetchPhonetic(for lemma: String) async throws -> String {
+        var components = URLComponents(string: "https://clients5.google.com/translate_a/single")
+        components?.queryItems = [
+            URLQueryItem(name: "client", value: "dict-chrome-ex"),
+            URLQueryItem(name: "sl", value: "en"),
+            URLQueryItem(name: "tl", value: "en"),
+            URLQueryItem(name: "dt", value: "t"),
+            URLQueryItem(name: "dt", value: "rm"),
+            URLQueryItem(name: "ie", value: "UTF-8"),
+            URLQueryItem(name: "oe", value: "UTF-8"),
+            URLQueryItem(name: "q", value: lemma),
+        ]
+        guard let url = components?.url else { return "" }
+        let data = try await perform(url: url, query: lemma)
+        return Self.extractPhonetic(from: data, query: lemma)
+    }
+
+    static func extractPhonetic(from data: Data, query: String) -> String {
+        guard let json = try? JSONSerialization.jsonObject(with: data),
+              let root = json as? [Any],
+              let sentences = root[safe: 0] as? [Any] else { return "" }
+
+        let phoneticChars = CharacterSet(charactersIn: "ˈˌəɪæɑɒɔʊʌɛθðŋʃʒːāēīōūǎǐǒǔɡ()")
+        var found: String?
+
+        for item in sentences {
+            guard let row = item as? [Any] else { continue }
+            for value in row {
+                guard let text = value as? String else { continue }
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                if trimmed.lowercased() == query.lowercased() { continue }
+                // Prefer strings that look like pronunciation / IPA-ish readings.
+                if trimmed.unicodeScalars.contains(where: { phoneticChars.contains($0) })
+                    || trimmed.contains("'")
+                    || trimmed.contains("ˈ") {
+                    found = trimmed
+                    break
+                }
+            }
+            if found != nil { break }
+        }
+
+        guard let raw = found else { return "" }
+        let bare = raw.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return "/\(bare)/"
+    }
+
+    // MARK: - Network helpers
+
+    private func fetchTranslate(
         client: String,
+        sourceLang: String,
+        targetLang: String,
         query: String,
         includeDictionary: Bool
     ) async throws -> GoogleTranslateParseResult {
-        var components = URLComponents(string: hostPath)
+        var components = URLComponents(string: "https://clients5.google.com/translate_a/single")
         var items: [URLQueryItem] = [
             URLQueryItem(name: "client", value: client),
-            URLQueryItem(name: "sl", value: "en"),
-            URLQueryItem(name: "tl", value: "zh-CN"),
+            URLQueryItem(name: "sl", value: sourceLang),
+            URLQueryItem(name: "tl", value: targetLang),
             URLQueryItem(name: "hl", value: "zh-CN"),
             URLQueryItem(name: "dt", value: "t"),
             URLQueryItem(name: "ie", value: "UTF-8"),
@@ -130,7 +199,6 @@ final class GoogleTranslateService: @unchecked Sendable {
             items.append(URLQueryItem(name: "dt", value: "md"))
         }
         components?.queryItems = items
-
         guard let url = components?.url else { throw DictionaryServiceError.invalidURL }
         let data = try await perform(url: url, query: query)
         return try Self.parseResponse(data: data, query: query)
@@ -146,15 +214,9 @@ final class GoogleTranslateService: @unchecked Sendable {
         ]
         guard let url = components?.url else { throw DictionaryServiceError.invalidURL }
         let data = try await perform(url: url, query: query)
-
         let json = try JSONSerialization.jsonObject(with: data, options: [])
-        // ["苹果"] or [["苹果"]]
-        if let arr = json as? [String] {
-            return arr.joined(separator: "")
-        }
-        if let arr = json as? [Any] {
-            return arr.compactMap { $0 as? String }.joined(separator: "")
-        }
+        if let arr = json as? [String] { return arr.joined() }
+        if let arr = json as? [Any] { return arr.compactMap { $0 as? String }.joined() }
         return ""
     }
 
@@ -179,23 +241,16 @@ final class GoogleTranslateService: @unchecked Sendable {
             throw DictionaryServiceError.httpStatus(http.statusCode)
         }
 
-        // Google sometimes returns an HTML "Sorry..." page with HTTP 200.
         if let raw = String(data: data, encoding: .utf8),
            raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("<!doctype")
             || raw.contains("We're sorry") {
-            googleLog.error("Blocked HTML response for \(query, privacy: .public)")
             throw DictionaryServiceError.apiError("Google 接口暂时不可用或被限流，请稍后再试")
-        }
-
-        if let raw = String(data: data, encoding: .utf8) {
-            let preview = raw.count > 400 ? String(raw.prefix(400)) + "…" : raw
-            googleLog.debug("Raw: \(preview, privacy: .public)")
         }
 
         return data
     }
 
-    // MARK: - Parsing
+    // MARK: - Chinese parse
 
     struct GoogleTranslateParseResult: Equatable {
         var chinese: String
@@ -210,7 +265,6 @@ final class GoogleTranslateService: @unchecked Sendable {
 
         let translation = pickTranslation(from: root)
         let dictionary = pickDictionary(from: root)
-        let phonetic = pickPhonetic(from: root, query: query)
 
         let chinese: String
         if !dictionary.isEmpty, !translation.isEmpty, !dictionary.contains(translation) {
@@ -221,10 +275,9 @@ final class GoogleTranslateService: @unchecked Sendable {
             chinese = translation
         }
 
-        return GoogleTranslateParseResult(chinese: chinese, phonetic: phonetic)
+        return GoogleTranslateParseResult(chinese: chinese, phonetic: "")
     }
 
-    /// root[0] = [[[translated, original, ...], ...]]
     static func pickTranslation(from root: [Any]) -> String {
         guard let sentences = root[safe: 0] as? [Any] else { return "" }
         var parts: [String] = []
@@ -236,7 +289,6 @@ final class GoogleTranslateService: @unchecked Sendable {
         return parts.joined()
     }
 
-    /// root[1] = [[pos, [meaning, ...], ...], ...]
     static func pickDictionary(from root: [Any]) -> String {
         guard root.count > 1, let blocks = root[1] as? [Any] else { return "" }
         var lines: [String] = []
@@ -248,7 +300,6 @@ final class GoogleTranslateService: @unchecked Sendable {
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty } ?? []
             guard !meanings.isEmpty else { continue }
-            // Skip garbage single rare glyphs sometimes returned
             let useful = meanings.filter { $0.count > 1 || meanings.count == 1 }
             guard !useful.isEmpty else { continue }
             let joined = useful.prefix(6).joined(separator: "、")
@@ -257,29 +308,10 @@ final class GoogleTranslateService: @unchecked Sendable {
         return lines.joined(separator: "；")
     }
 
-    static func pickPhonetic(from root: [Any], query: String) -> String {
-        // Free Google Translate rarely returns IPA for en→zh; keep best-effort.
-        if let sentences = root[safe: 0] as? [Any] {
-            for item in sentences {
-                guard let row = item as? [Any] else { continue }
-                for idx in [3, 2, 4] {
-                    if let reading = row[safe: idx] as? String {
-                        let trimmed = reading.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !trimmed.isEmpty, trimmed.lowercased() != query.lowercased() {
-                            let bare = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                            return "/\(bare)/"
-                        }
-                    }
-                }
-            }
-        }
-        return ""
-    }
-
     // MARK: - Mock
 
     static func mockResult(for query: String) -> DictionaryLookupResult {
-        let key = query.lowercased()
+        let key = EnglishLemmatizer.lemma(for: query)
         if let known = mockLexicon[key] {
             return DictionaryLookupResult(
                 english: key,
@@ -314,6 +346,10 @@ final class GoogleTranslateService: @unchecked Sendable {
         "practice": ("/ˈpræktɪs/", "n. 练习；实践 v. 练习"),
         "quiet": ("/ˈkwaɪət/", "adj. 安静的"),
         "resilient": ("/rɪˈzɪliənt/", "adj. 有弹性的；能复原的"),
+        "run": ("/rʌn/", "v. 跑；运行"),
+        "go": ("/ɡəʊ/", "v. 去"),
+        "good": ("/ɡʊd/", "adj. 好的"),
+        "study": ("/ˈstʌdi/", "v./n. 学习；研究"),
         "serene": ("/səˈriːn/", "adj. 平静的；安详的"),
         "thrive": ("/θraɪv/", "v. 繁荣；茁壮成长"),
         "vocabulary": ("/vəˈkæbjələri/", "n. 词汇；词汇量"),
