@@ -10,6 +10,7 @@ struct CiJiApp: App {
         let schema = Schema([
             Word.self,
             WordGroup.self,
+            PracticeRecord.self,
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: false)
         do {

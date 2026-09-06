@@ -3,6 +3,7 @@ import SwiftData
 
 struct QuizView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var pronunciation: PronunciationService
 
@@ -35,7 +36,12 @@ struct QuizView: View {
             .onAppear {
                 if session.phase == .setup {
                     session.scope = preferredScope
+                    session.syncPageSizeToScope(allWords: allWords, groups: groups)
                 }
+            }
+            .onChange(of: session.scope) { _, _ in
+                guard session.phase == .setup else { return }
+                session.syncPageSizeToScope(allWords: allWords, groups: groups)
             }
         }
         .frame(minWidth: 760, minHeight: 560)
@@ -73,7 +79,7 @@ struct QuizView: View {
         if session.phase == .practicing, session.pageChecked {
             ToolbarItem(placement: .confirmationAction) {
                 Button(session.isLastPage ? "查看结果" : "下一页") {
-                    session.goNextPage()
+                    session.goNextPage(context: modelContext, allWords: allWords, groups: groups)
                 }
                 .keyboardShortcut(.return, modifiers: [.command])
             }
@@ -110,9 +116,21 @@ struct QuizView: View {
                     }
                 }
 
-                Stepper(value: $session.pageSize, in: 1...12) {
-                    Text("每页题数：\(session.pageSize)")
+                HStack {
+                    Text("每页题数")
+                    Spacer()
+                    TextField("题数", value: $session.pageSize, format: .number)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 72)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: session.pageSize) { _, newValue in
+                            if newValue < 1 { session.pageSize = 1 }
+                            if newValue > 500 { session.pageSize = 500 }
+                        }
                 }
+                Text("默认为当前范围的单词总数（可手动修改）。当前范围共 \(session.availableCount(for: session.scope, allWords: allWords, groups: groups)) 个可练习词。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Stepper(value: $session.limit, in: 0...500) {
                     Text(session.limit == 0 ? "本轮题数：全部" : "本轮最多：\(session.limit) 词")
@@ -340,13 +358,17 @@ struct QuizView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 20) {
                 scoreChip(title: "正确", value: session.correctCount, tint: .green)
-                scoreChip(title: "错误", value: session.wrongCount, tint: .red)
+                scoreChip(title: "答错词数", value: session.distinctWrongWordCount, tint: .red)
                 scoreChip(
                     title: "正确率",
                     valueText: "\(Int((session.accuracy * 100).rounded()))%",
                     tint: .accentColor
                 )
             }
+
+            Text("本轮答错 \(session.distinctWrongWordCount) 个单词（已记入各词累计错次）。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             if session.wrongItems.isEmpty {
                 ContentUnavailableView(
@@ -371,6 +393,11 @@ struct QuizView: View {
                             Spacer()
                             Text("你的答案：\(item.userAnswer.isEmpty ? "（空）" : item.userAnswer)")
                                 .foregroundStyle(.red)
+                            if let total = cumulativeWrongCount(for: item.item.id), total > 0 {
+                                Text("累计错 \(total) 次")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Text("参考：\(item.item.chinese)")
                             .font(.callout)

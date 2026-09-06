@@ -29,6 +29,7 @@
 		A10000000000000000000017 /* QuizSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* QuizSession.swift */; };
 		A10000000000000000000018 /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* QuizView.swift */; };
 		A10000000000000000000019 /* QuizAnswerMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* QuizAnswerMatcherTests.swift */; };
+		A1000000000000000000001A /* PracticeRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001A /* PracticeRecord.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +68,7 @@
 		B10000000000000000000017 /* QuizSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizSession.swift; sourceTree = "<group>"; };
 		B10000000000000000000018 /* QuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizView.swift; sourceTree = "<group>"; };
 		B10000000000000000000019 /* QuizAnswerMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizAnswerMatcherTests.swift; sourceTree = "<group>"; };
+		B1000000000000000000001A /* PracticeRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeRecord.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,6 +115,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000002 /* Word.swift */,
+				B1000000000000000000001A /* PracticeRecord.swift */,
 				B10000000000000000000003 /* WordGroup.swift */,
 				B10000000000000000000011 /* GroupSelection.swift */,
 			);
@@ -268,6 +271,7 @@
 			files = (
 				A10000000000000000000001 /* CiJiApp.swift in Sources */,
 				A10000000000000000000002 /* Word.swift in Sources */,
+				A1000000000000000000001A /* PracticeRecord.swift in Sources */,
 				A10000000000000000000003 /* WordGroup.swift in Sources */,
 				A10000000000000000000011 /* GroupSelection.swift in Sources */,
 				A10000000000000000000012 /* AppLog.swift in Sources */,

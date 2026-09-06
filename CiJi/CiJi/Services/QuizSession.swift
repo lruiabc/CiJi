@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Live (pre-submit) correctness hint for practice rows.
 enum QuizLiveStatus: Equatable {
@@ -8,7 +9,7 @@ enum QuizLiveStatus: Equatable {
     case incorrect
 }
 
-/// In-memory multi-word quiz session (not persisted).
+/// In-memory multi-word quiz session (persists stats when a round finishes).
 @MainActor
 final class QuizSession: ObservableObject {
     enum Phase: Equatable {
@@ -75,7 +76,8 @@ final class QuizSession: ObservableObject {
     @Published var phase: Phase = .setup
     @Published var scope: Scope = .all
     @Published var orderMode: OrderMode = .shuffled
-    @Published var pageSize: Int = 5
+    /// Words shown per page; defaults to the selected scope’s eligible count.
+    @Published var pageSize: Int = 1
     /// `0` = all eligible words.
     @Published var limit: Int = 0
     /// When on, answers are validated as the user types (no submit required to see correctness).
@@ -86,6 +88,7 @@ final class QuizSession: ObservableObject {
     @Published var prompts: [Prompt] = []
     @Published private(set) var pageChecked: Bool = false
     @Published private(set) var results: [Result] = []
+    @Published private(set) var didRecordCompletion: Bool = false
 
     var totalPages: Int {
         guard pageSize > 0, !queue.isEmpty else { return 0 }
@@ -102,6 +105,9 @@ final class QuizSession: ObservableObject {
     var totalAnswered: Int { results.count }
     var totalCount: Int { results.count }
     var wrongItems: [Result] { results.filter { !$0.isCorrect } }
+    var distinctWrongWordCount: Int {
+        Set(wrongItems.map(\.item.id)).count
+    }
     var accuracy: Double {
         guard totalAnswered > 0 else { return 0 }
         return Double(correctCount) / Double(totalAnswered)
@@ -121,8 +127,24 @@ final class QuizSession: ObservableObject {
         eligibleItems(for: scope, allWords: allWords, groups: groups).count
     }
 
+    /// Set page size to the eligible word count for the current scope (min 1).
+    func syncPageSizeToScope(allWords: [Word], groups: [WordGroup]) {
+        let count = availableCount(for: scope, allWords: allWords, groups: groups)
+        pageSize = max(1, count)
+    }
+
+    func scopeLabel(groups: [WordGroup]) -> String {
+        switch scope {
+        case .all: return "全部单词"
+        case .ungrouped: return "未分组"
+        case .group(let id):
+            return groups.first(where: { $0.uuid == id })?.name ?? "分组"
+        }
+    }
+
     @discardableResult
     func start(allWords: [Word], groups: [WordGroup]) -> String? {
+        pageSize = max(1, pageSize)
         var items = eligibleItems(for: scope, allWords: allWords, groups: groups)
         guard !items.isEmpty else {
             return "所选范围没有带中文释义的单词，请先添加或编辑释义。"
@@ -130,7 +152,6 @@ final class QuizSession: ObservableObject {
 
         switch orderMode {
         case .sequential:
-            // Stable study order: earlier-added words first.
             break
         case .shuffled:
             items.shuffle()
@@ -143,6 +164,7 @@ final class QuizSession: ObservableObject {
         pageIndex = 0
         results = []
         pageChecked = false
+        didRecordCompletion = false
         loadCurrentPage()
         phase = .practicing
         AppLog.console(
@@ -178,18 +200,57 @@ final class QuizSession: ObservableObject {
         checkPage()
     }
 
-    func goNextPage() {
+    func goNextPage(context: ModelContext? = nil, allWords: [Word] = [], groups: [WordGroup] = []) {
         guard pageChecked else { return }
         if isLastPage {
+            if let context {
+                recordCompletion(context: context, allWords: allWords, groups: groups)
+            }
             phase = .summary
             prompts = []
             pageChecked = false
-            AppLog.console("练习结束 correct=\(correctCount)/\(totalAnswered)", category: "Quiz")
+            AppLog.console(
+                "练习结束 correct=\(correctCount)/\(totalAnswered) wrongWords=\(distinctWrongWordCount)",
+                category: "Quiz"
+            )
             return
         }
         pageIndex += 1
         pageChecked = false
         loadCurrentPage()
+    }
+
+    /// Persist session wrong-word tally and per-word incorrect counts.
+    @discardableResult
+    func recordCompletion(context: ModelContext, allWords: [Word], groups: [WordGroup]) -> PracticeRecord? {
+        guard !didRecordCompletion else { return nil }
+        didRecordCompletion = true
+
+        var wrongTimesByID: [UUID: Int] = [:]
+        for result in wrongItems {
+            wrongTimesByID[result.item.id, default: 0] += 1
+        }
+
+        let wordsByID = Dictionary(uniqueKeysWithValues: allWords.map { ($0.uuid, $0) })
+        for (id, times) in wrongTimesByID {
+            guard let word = wordsByID[id] else { continue }
+            word.wrongAnswerCount += times
+        }
+
+        let record = PracticeRecord(
+            scopeID: scope.id,
+            scopeLabel: scopeLabel(groups: groups),
+            totalCount: totalAnswered,
+            wrongWordCount: distinctWrongWordCount,
+            correctCount: correctCount
+        )
+        context.insert(record)
+        try? context.save()
+        AppLog.console(
+            "记录练习结果 wrongWords=\(record.wrongWordCount)/\(record.totalCount) perWordIncrements=\(wrongTimesByID.count)",
+            category: "Quiz"
+        )
+        return record
     }
 
     @discardableResult
@@ -204,6 +265,7 @@ final class QuizSession: ObservableObject {
         prompts = []
         pageChecked = false
         results = []
+        didRecordCompletion = false
     }
 
     private func loadCurrentPage() {
@@ -220,7 +282,6 @@ final class QuizSession: ObservableObject {
     private func eligibleItems(for scope: Scope, allWords: [Word], groups: [WordGroup]) -> [Item] {
         var words = sourceWords(for: scope, allWords: allWords, groups: groups)
             .filter { !$0.chinese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        // Deterministic base order for “顺序” mode.
         words.sort {
             if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
             return $0.english < $1.english

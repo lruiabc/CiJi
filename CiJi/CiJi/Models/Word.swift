@@ -10,6 +10,8 @@ final class Word {
     var createdAt: Date
     var sortOrder: Int
     var source: String
+    /// Cumulative times this word was answered incorrectly in practice.
+    var wrongAnswerCount: Int
 
     /// A word may belong to zero or more groups.
     @Relationship(inverse: \WordGroup.words)
@@ -21,7 +23,8 @@ final class Word {
         chinese: String = "",
         sortOrder: Int = 0,
         source: String = "google",
-        groups: [WordGroup] = []
+        groups: [WordGroup] = [],
+        wrongAnswerCount: Int = 0
     ) {
         self.uuid = UUID()
         self.english = english.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -31,6 +34,7 @@ final class Word {
         self.sortOrder = sortOrder
         self.source = source
         self.groups = groups
+        self.wrongAnswerCount = max(0, wrongAnswerCount)
     }
 
     var isUngrouped: Bool { groups.isEmpty }

@@ -376,6 +376,13 @@ struct ContentView: View {
             }
             .width(min: 100, ideal: 160)
 
+            TableColumn("错次") { word in
+                Text(word.wrongAnswerCount == 0 ? "—" : "\(word.wrongAnswerCount)")
+                    .foregroundStyle(word.wrongAnswerCount == 0 ? Color.secondary.opacity(0.5) : Color.orange)
+                    .help("练习中累计答错次数")
+            }
+            .width(min: 44, ideal: 56, max: 72)
+
             TableColumn("来源") { word in
                 Text(word.source == "google" ? "Google" : (word.source == "mock" ? "示例" : word.source))
                     .font(.caption)
@@ -543,5 +550,5 @@ struct ContentView: View {
     ContentView()
         .environmentObject(SettingsStore())
         .environmentObject(PronunciationService())
-        .modelContainer(for: [Word.self, WordGroup.self], inMemory: true)
+        .modelContainer(for: [Word.self, WordGroup.self, PracticeRecord.self], inMemory: true)
 }
