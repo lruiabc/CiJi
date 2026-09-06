@@ -8,6 +8,8 @@ struct EnglishLemmatizerTests {
         #expect(EnglishLemmatizer.lemma(for: "running") == "run")
         #expect(EnglishLemmatizer.lemma(for: "better") == "good")
         #expect(EnglishLemmatizer.lemma(for: "children") == "child")
+        #expect(EnglishLemmatizer.lemma(for: "leaves") == "leaf")
+        #expect(EnglishLemmatizer.lemma(for: "left") == "leave")
     }
 
     @Test func regularInflections() {
