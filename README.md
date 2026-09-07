@@ -38,7 +38,7 @@
 - 中文 / 发音：有道 `dict.youdao.com/jsonapi` + `dictvoice`（免费网页接口）
 - 音标：优先 [Free Dictionary API](https://dictionaryapi.dev/) 的 IPA；失败则 [Datamuse](https://www.datamuse.com/api/) CMU 发音转 **DJ 音标**
 - 网络失败时可在设置中开启「本地示例释义」
-- 发音优先 Google TTS，失败则回退到系统朗读（AVSpeech）
+- 发音优先有道 dictvoice，失败则回退到系统朗读（AVSpeech）
 
 > 说明：使用有道公开词典接口，开箱即用、无需付费；接口非官方文档保证，若变更可回退本地示例。上架审核时请在隐私说明中写明会联网访问有道词典。
 
@@ -64,7 +64,7 @@
 ## 近期变更（功能 1）
 
 1. **查词改为有道公开词典接口**（无需 API Key；失败可回退本地示例）
-2. **发音改为 Google TTS**，失败时回退系统朗读
+2. **发音改为有道 dictvoice**，失败时回退系统朗读
 3. **音标显示**：IPA/DJ（Free Dictionary + Datamuse），不再使用 Google 拼读转写
 4. **原型还原**：不规则变化表 + 后缀规则；预览与数据库均存原型
 5. **批量导入**：最多 3 路并发、可停止、请求超时约 12 秒；按原型去重
