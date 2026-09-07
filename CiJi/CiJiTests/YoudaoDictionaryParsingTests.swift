@@ -60,18 +60,35 @@ struct IPAPhoneticServiceTests {
     }
 }
 
-struct GoogleTranslateParsingTests {
-    @Test func parseSimpleTranslationArray() throws {
+struct YoudaoDictionaryParsingTests {
+    @Test func parseBasicExplains() throws {
         let json = """
-        [[["苹果","apple",null,null,10]],null,"en"]
+        {"errorCode":"0","query":"apple","translation":["苹果"],"basic":{"us-phonetic":"ˈæpl","explains":["n. 苹果","n. 苹果公司"]}}
         """.data(using: .utf8)!
+        let parsed = try YoudaoDictionaryService.parseResponse(data: json)
+        #expect(parsed.chinese.contains("苹果"))
+        #expect(parsed.phonetic.contains("æpl"))
+    }
 
-        let parsed = try GoogleTranslateService.parseResponse(data: json, query: "apple")
-        #expect(parsed.chinese == "苹果")
+    @Test func signIsStableSHA256() {
+        let sign = YoudaoDictionaryService.sign(
+            appKey: "key",
+            query: "apple",
+            salt: "salt",
+            curtime: "1",
+            appSecret: "secret"
+        )
+        #expect(sign.count == 64)
+    }
+
+    @Test func truncateLongInput() {
+        let q = String(repeating: "a", count: 25)
+        let truncated = YoudaoDictionaryService.truncateInput(q)
+        #expect(truncated == "aaaaaaaaaa25aaaaaaaaaa")
     }
 
     @Test func mockResultContainsKnownWord() {
-        let result = GoogleTranslateService.mockResult(for: "memory")
+        let result = YoudaoDictionaryService.mockResult(for: "memory")
         #expect(result.source == "mock")
         #expect(result.chinese.contains("记忆"))
         #expect(!result.phonetic.isEmpty)

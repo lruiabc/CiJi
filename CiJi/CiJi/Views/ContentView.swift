@@ -384,7 +384,14 @@ struct ContentView: View {
             .width(min: 44, ideal: 56, max: 72)
 
             TableColumn("来源") { word in
-                Text(word.source == "google" ? "Google" : (word.source == "mock" ? "示例" : word.source))
+                Text({
+                    switch word.source {
+                    case "youdao": return "有道"
+                    case "mock": return "示例"
+                    case "google": return "Google"
+                    default: return word.source
+                    }
+                }())
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

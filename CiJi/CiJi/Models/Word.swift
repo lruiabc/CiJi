@@ -22,7 +22,7 @@ final class Word {
         phonetic: String = "",
         chinese: String = "",
         sortOrder: Int = 0,
-        source: String = "google",
+        source: String = "youdao",
         groups: [WordGroup] = [],
         wrongAnswerCount: Int = 0
     ) {

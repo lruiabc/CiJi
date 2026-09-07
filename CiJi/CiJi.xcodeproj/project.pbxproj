@@ -14,7 +14,7 @@
 		A10000000000000000000015 /* GroupMultiPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* GroupMultiPicker.swift */; };
 		A10000000000000000000012 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* AppLog.swift */; };
 		A10000000000000000000004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* SettingsStore.swift */; };
-		A10000000000000000000005 /* GoogleTranslateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* GoogleTranslateService.swift */; };
+		A10000000000000000000005 /* YoudaoDictionaryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* YoudaoDictionaryService.swift */; };
 		A10000000000000000000013 /* EnglishLemmatizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* EnglishLemmatizer.swift */; };
 		A10000000000000000000014 /* IPAPhoneticService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* IPAPhoneticService.swift */; };
 		A10000000000000000000006 /* PronunciationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* PronunciationService.swift */; };
@@ -24,7 +24,7 @@
 		A1000000000000000000000A /* BatchImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* BatchImportSheet.swift */; };
 		A1000000000000000000000B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* SettingsView.swift */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000C /* Assets.xcassets */; };
-		A1000000000000000000000D /* GoogleTranslateParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* GoogleTranslateParsingTests.swift */; };
+		A1000000000000000000000D /* YoudaoDictionaryParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* YoudaoDictionaryParsingTests.swift */; };
 		A10000000000000000000016 /* QuizAnswerMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* QuizAnswerMatcher.swift */; };
 		A10000000000000000000017 /* QuizSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* QuizSession.swift */; };
 		A10000000000000000000018 /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* QuizView.swift */; };
@@ -50,7 +50,7 @@
 		B10000000000000000000015 /* GroupMultiPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupMultiPicker.swift; sourceTree = "<group>"; };
 		B10000000000000000000012 /* AppLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLog.swift; sourceTree = "<group>"; };
 		B10000000000000000000004 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
-		B10000000000000000000005 /* GoogleTranslateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleTranslateService.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* YoudaoDictionaryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoudaoDictionaryService.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* EnglishLemmatizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnglishLemmatizer.swift; sourceTree = "<group>"; };
 		B10000000000000000000014 /* IPAPhoneticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPAPhoneticService.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* PronunciationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PronunciationService.swift; sourceTree = "<group>"; };
@@ -60,7 +60,7 @@
 		B1000000000000000000000A /* BatchImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchImportSheet.swift; sourceTree = "<group>"; };
 		B1000000000000000000000B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B1000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B1000000000000000000000D /* GoogleTranslateParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleTranslateParsingTests.swift; sourceTree = "<group>"; };
+		B1000000000000000000000D /* YoudaoDictionaryParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoudaoDictionaryParsingTests.swift; sourceTree = "<group>"; };
 		B1000000000000000000000E /* CiJi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CiJi.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000F /* CiJi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CiJi.entitlements; sourceTree = "<group>"; };
 		B10000000000000000000010 /* CiJiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CiJiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -126,7 +126,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000004 /* SettingsStore.swift */,
-				B10000000000000000000005 /* GoogleTranslateService.swift */,
+				B10000000000000000000005 /* YoudaoDictionaryService.swift */,
 				B10000000000000000000013 /* EnglishLemmatizer.swift */,
 				B10000000000000000000014 /* IPAPhoneticService.swift */,
 				B10000000000000000000006 /* PronunciationService.swift */,
@@ -162,7 +162,7 @@
 		G10000000000000000000008 /* CiJiTests */ = {
 			isa = PBXGroup;
 			children = (
-				B1000000000000000000000D /* GoogleTranslateParsingTests.swift */,
+				B1000000000000000000000D /* YoudaoDictionaryParsingTests.swift */,
 				B10000000000000000000019 /* QuizAnswerMatcherTests.swift */,
 			);
 			path = CiJiTests;
@@ -278,7 +278,7 @@
 				A10000000000000000000017 /* QuizSession.swift in Sources */,
 				A10000000000000000000016 /* QuizAnswerMatcher.swift in Sources */,
 				A10000000000000000000004 /* SettingsStore.swift in Sources */,
-				A10000000000000000000005 /* GoogleTranslateService.swift in Sources */,
+				A10000000000000000000005 /* YoudaoDictionaryService.swift in Sources */,
 				A10000000000000000000013 /* EnglishLemmatizer.swift in Sources */,
 				A10000000000000000000014 /* IPAPhoneticService.swift in Sources */,
 				A10000000000000000000006 /* PronunciationService.swift in Sources */,
@@ -296,7 +296,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000000000000000000000D /* GoogleTranslateParsingTests.swift in Sources */,
+				A1000000000000000000000D /* YoudaoDictionaryParsingTests.swift in Sources */,
 				A10000000000000000000019 /* QuizAnswerMatcherTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

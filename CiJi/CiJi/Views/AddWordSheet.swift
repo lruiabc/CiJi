@@ -68,7 +68,7 @@ struct AddWordSheet: View {
                                 .textSelection(.enabled)
                         }
                         LabeledContent("来源") {
-                            Text(preview.source == "google" ? "Google 翻译" : "本地示例")
+                            Text(sourceLabel(preview.source))
                                 .foregroundStyle(.secondary)
                         }
                     } else {
@@ -126,8 +126,21 @@ struct AddWordSheet: View {
         .frame(minWidth: 520, minHeight: 480)
     }
 
-    private func dictionaryService() -> GoogleTranslateService {
-        GoogleTranslateService(allowMockFallback: settings.useMockOnFailure)
+    private func sourceLabel(_ source: String) -> String {
+        switch source {
+        case "youdao": return "有道"
+        case "mock": return "本地示例"
+        case "google": return "Google（旧）"
+        default: return source
+        }
+    }
+
+    private func dictionaryService() -> YoudaoDictionaryService {
+        YoudaoDictionaryService(
+            appKey: settings.youdaoAppKey,
+            appSecret: settings.youdaoAppSecret,
+            allowMockFallback: settings.useMockOnFailure
+        )
     }
 
     private func lookup() async {

@@ -330,7 +330,11 @@ struct BatchImportSheet: View {
             category: "BatchImport"
         )
 
-        let service = GoogleTranslateService(allowMockFallback: settings.useMockOnFailure)
+        let service = YoudaoDictionaryService(
+            appKey: settings.youdaoAppKey,
+            appSecret: settings.youdaoAppSecret,
+            allowMockFallback: settings.useMockOnFailure
+        )
 
         var offset = 0
         while offset < fetchIndices.count {
@@ -425,7 +429,7 @@ struct BatchImportSheet: View {
                     english: draft.english,
                     phonetic: draft.phonetic,
                     chinese: draft.chinese,
-                    source: draft.source.isEmpty ? "google" : draft.source,
+                    source: draft.source.isEmpty ? "youdao" : draft.source,
                     groups: targetGroups
                 )
                 modelContext.insert(word)

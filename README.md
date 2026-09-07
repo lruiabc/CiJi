@@ -11,7 +11,7 @@
 - **批量导入**：每行一个单词，自动查词；默认/逐词多选分组，并可 **一键批量改组**；已有词追加分组
 - **分组管理**：新建 / 重命名 / 删除；每组可设容量；列表中可「加入 / 仅保留 / 移出 / 清空」分组
 - **发音按钮**：列表、添加预览、批量预览均可点击喇叭听读音（Google TTS，失败回退系统朗读；支持美音/英音）
-- **Google 免费翻译**：无需 API Key；网络失败时可回退本地示例释义
+- **有道智云翻译**：官方 API；在设置中填写 AppKey / 密钥；失败可回退本地示例
 
 ## 环境要求
 
@@ -33,14 +33,14 @@
 
 ### 词典数据来源
 
-查词使用 **Google Translate 免费接口**（无需 API Key）获取中文；音标单独拉取：
+查词使用 **有道智云官方翻译 API**（需在设置中填写 AppKey / 密钥）；音标单独拉取：
 
-- 中文：`clients5.google.com/translate_a/single`（`dict-chrome-ex`）
+- 中文：有道智云 `openapi.youdao.com/api`（文本翻译）
 - 音标：优先 [Free Dictionary API](https://dictionaryapi.dev/) 的 IPA；失败则 [Datamuse](https://www.datamuse.com/api/) CMU 发音转 **DJ 音标**
-- 网络失败时可在设置中开启「本地示例释义」
+- 未配置密钥或网络失败时可在设置中开启「本地示例释义」
 - 发音优先 Google TTS，失败则回退到系统朗读（AVSpeech）
 
-> 注意：这是非官方免费接口，可能限流或变更；正式上架 App Store 前建议换成 Google Cloud Translation 官方 API。
+> 有道账号：在 [有道智云](https://ai.youdao.com/) 创建「文本翻译」应用，把 AppKey 与密钥填入 App 设置。注册通常有体验额度。
 
 
 ## 使用提示
@@ -63,7 +63,7 @@
 
 ## 近期变更（功能 1）
 
-1. **查词改为 Google Translate 免费接口**（无需 API Key；失败可回退本地示例）
+1. **查词改为有道智云官方 API**（设置中配置 AppKey；失败可回退本地示例）
 2. **发音改为 Google TTS**，失败时回退系统朗读
 3. **音标显示**：IPA/DJ（Free Dictionary + Datamuse），不再使用 Google 拼读转写
 4. **原型还原**：不规则变化表 + 后缀规则；预览与数据库均存原型
