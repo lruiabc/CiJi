@@ -6,6 +6,10 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             Form {
+                Section {
+                    BrandMark()
+                        .padding(.vertical, 4)
+                }
                 Section("词典与发音") {
                     LabeledContent("数据来源") {
                         Text("有道词典（免费网页接口）")

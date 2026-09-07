@@ -55,6 +55,9 @@ struct BatchImportSheet: View {
                 }
             }
             .navigationTitle("批量导入")
+            #if os(macOS)
+            .navigationSubtitle(AppTheme.brandName)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(isLookingUp ? "停止" : "取消") {

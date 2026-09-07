@@ -198,7 +198,13 @@ struct ContentView: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("词记")
+        .navigationTitle(AppTheme.brandName)
+        .safeAreaInset(edge: .top) {
+            BrandMark(compact: true)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
+        }
         .safeAreaInset(edge: .bottom) {
             Button {
                 newGroupName = nextDefaultGroupName()
@@ -206,8 +212,15 @@ struct ContentView: View {
             } label: {
                 Label("新建分组", systemImage: "folder.badge.plus")
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(AppTheme.jade.opacity(0.12))
+                    )
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
+            .foregroundStyle(AppTheme.ink)
             .padding(12)
         }
     }
@@ -215,13 +228,16 @@ struct ContentView: View {
     // MARK: - Detail
 
     private var detail: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
-            if visibleWords.isEmpty {
-                emptyState
-            } else {
-                wordTable
+        ZStack {
+            AppAtmosphereBackground()
+            VStack(spacing: 0) {
+                toolbar
+                Divider().opacity(0.5)
+                if visibleWords.isEmpty {
+                    emptyState
+                } else {
+                    wordTable
+                }
             }
         }
         .navigationTitle(detailTitle)
@@ -308,24 +324,44 @@ struct ContentView: View {
 
             Text("\(visibleWords.count) 个单词")
                 .foregroundStyle(.secondary)
-                .font(.callout)
+                .font(.callout.weight(.medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(AppTheme.mist.opacity(0.9)))
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
     }
 
     private var emptyState: some View {
-        ContentUnavailableView {
-            Label(emptyTitle, systemImage: "text.book.closed")
-        } description: {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle()
+                    .fill(AppTheme.jade.opacity(0.12))
+                    .frame(width: 88, height: 88)
+                Image(systemName: "text.book.closed.fill")
+                    .font(.system(size: 34, weight: .medium))
+                    .foregroundStyle(AppTheme.jade)
+            }
+            Text(emptyTitle)
+                .font(AppTheme.brandTitleFont)
+                .foregroundStyle(AppTheme.ink)
             Text(emptyDescription)
-        } actions: {
-            Button("添加单词") { showAddSheet = true }
-                .buttonStyle(.borderedProminent)
-            Button("批量导入") { showBatchSheet = true }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+            HStack(spacing: 12) {
+                Button("添加单词") { showAddSheet = true }
+                    .buttonStyle(PrimaryActionButtonStyle())
+                Button("批量导入") { showBatchSheet = true }
+                    .buttonStyle(.bordered)
+            }
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
     }
 
     private var emptyTitle: String {
@@ -351,14 +387,15 @@ struct ContentView: View {
 
             TableColumn("英文") { word in
                 Text(word.english)
-                    .font(.body.weight(.medium))
+                    .font(AppTheme.wordFont)
+                    .foregroundStyle(AppTheme.ink)
             }
             .width(min: 100, ideal: 140)
 
             TableColumn("音标") { word in
                 Text(word.phonetic.isEmpty ? "—" : word.phonetic)
                     .foregroundStyle(.secondary)
-                    .font(.body.monospaced())
+                    .font(AppTheme.phoneticFont)
             }
             .width(min: 100, ideal: 150)
 

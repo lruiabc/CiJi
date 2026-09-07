@@ -20,7 +20,7 @@ struct SpeakButton: View {
         } label: {
             Image(systemName: active ? "speaker.wave.2.fill" : "speaker.wave.2")
                 .font(.system(size: size, weight: .medium))
-                .foregroundStyle(active ? Color.accentColor : Color.secondary)
+                .foregroundStyle(active ? AppTheme.jade : Color.secondary)
                 .frame(width: size + 10, height: size + 10)
                 .contentShape(Rectangle())
         }

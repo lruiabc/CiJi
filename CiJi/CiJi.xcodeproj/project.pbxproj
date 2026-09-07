@@ -30,6 +30,7 @@
 		A10000000000000000000018 /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* QuizView.swift */; };
 		A10000000000000000000019 /* QuizAnswerMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* QuizAnswerMatcherTests.swift */; };
 		A1000000000000000000001A /* PracticeRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001A /* PracticeRecord.swift */; };
+		A1000000000000000000001B /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001B /* AppTheme.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +70,7 @@
 		B10000000000000000000018 /* QuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizView.swift; sourceTree = "<group>"; };
 		B10000000000000000000019 /* QuizAnswerMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizAnswerMatcherTests.swift; sourceTree = "<group>"; };
 		B1000000000000000000001A /* PracticeRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeRecord.swift; sourceTree = "<group>"; };
+		B1000000000000000000001B /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +156,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000007 /* SpeakButton.swift */,
+				B1000000000000000000001B /* AppTheme.swift */,
 				B10000000000000000000015 /* GroupMultiPicker.swift */,
 			);
 			path = Components;
@@ -283,6 +286,7 @@
 				A10000000000000000000014 /* IPAPhoneticService.swift in Sources */,
 				A10000000000000000000006 /* PronunciationService.swift in Sources */,
 				A10000000000000000000007 /* SpeakButton.swift in Sources */,
+				A1000000000000000000001B /* AppTheme.swift in Sources */,
 				A10000000000000000000015 /* GroupMultiPicker.swift in Sources */,
 				A10000000000000000000008 /* ContentView.swift in Sources */,
 				A10000000000000000000009 /* AddWordSheet.swift in Sources */,
@@ -356,7 +360,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "词记";
+				INFOPLIST_KEY_CFBundleDisplayName = "词笺";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -386,7 +390,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "词记";
+				INFOPLIST_KEY_CFBundleDisplayName = "词笺";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026";
 				LD_RUNPATH_SEARCH_PATHS = (

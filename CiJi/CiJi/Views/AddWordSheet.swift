@@ -50,7 +50,8 @@ struct AddWordSheet: View {
                         LabeledContent("英文") {
                             HStack(spacing: 8) {
                                 Text(preview.english)
-                                    .font(.body.weight(.semibold))
+                                    .font(AppTheme.wordFont)
+                                    .foregroundStyle(AppTheme.ink)
                                 SpeakButton(word: preview.english, size: 14, helpText: "试听发音", pronunciation: pronunciation, settings: settings)
                             }
                         }
@@ -98,6 +99,9 @@ struct AddWordSheet: View {
             .formStyle(.grouped)
             .padding()
             .navigationTitle("添加单词")
+            #if os(macOS)
+            .navigationSubtitle(AppTheme.brandName)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }

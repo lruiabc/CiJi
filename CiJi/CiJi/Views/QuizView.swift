@@ -44,6 +44,7 @@ struct QuizView: View {
                 session.syncPageSizeToScope(allWords: allWords, groups: groups)
             }
         }
+        .background(AppAtmosphereBackground())
         .frame(minWidth: 760, minHeight: 560)
     }
 
@@ -151,7 +152,7 @@ struct QuizView: View {
             if let setupError {
                 Section {
                     Text(setupError)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(AppTheme.coral)
                 }
             }
 
@@ -195,16 +196,19 @@ struct QuizView: View {
 
     /// Single slim chrome strip: progress + optional live-check + column labels.
     private var compactPracticeChrome: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             HStack(spacing: 8) {
                 Text(session.progressLabel)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink.opacity(0.75))
                 Spacer(minLength: 8)
                 if session.liveCheckEnabled, !session.pageChecked {
-                    Label("实时校验已开", systemImage: "checkmark.circle")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    Label("实时校验已开", systemImage: "checkmark.circle.fill")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(AppTheme.jade)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(AppTheme.jade.opacity(0.12)))
                         .labelStyle(.titleAndIcon)
                 }
             }
@@ -213,19 +217,20 @@ struct QuizView: View {
                 Text("英文")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "arrow.left.arrow.right")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(.quaternary)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(AppTheme.jade.opacity(0.55))
                     .frame(width: 20)
                 Text("中文释义")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Color.clear.frame(width: 28)
             }
-            .font(.caption2.weight(.medium))
-            .foregroundStyle(.tertiary)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 6)
-        .padding(.bottom, 4)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .background(.ultraThinMaterial)
         .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -274,10 +279,10 @@ struct QuizView: View {
                 HStack(alignment: .center, spacing: 8) {
                     Image(systemName: correct ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .font(.body)
-                        .foregroundStyle(correct ? Color.green : Color.red)
+                        .foregroundStyle(correct ? AppTheme.jade : AppTheme.coral)
                     Text(prompt.answer.isEmpty ? "（未作答）" : prompt.answer)
                         .font(.body)
-                        .foregroundStyle(correct ? Color.primary : Color.red)
+                        .foregroundStyle(correct ? AppTheme.ink : AppTheme.coral)
                 }
 
                 if !correct {
@@ -300,7 +305,8 @@ struct QuizView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Text(item.english)
-                    .font(.title3.weight(.semibold))
+                    .font(AppTheme.wordFont)
+                    .foregroundStyle(AppTheme.ink)
                     .textSelection(.enabled)
                 SpeakButton(word: item.english, pronunciation: pronunciation, settings: settings)
             }
@@ -326,11 +332,11 @@ struct QuizView: View {
                     .help("尚未输入")
             case .correct:
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(AppTheme.jade)
                     .help("已匹配某一义项")
             case .incorrect:
                 Image(systemName: "xmark.circle")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(AppTheme.coral.opacity(0.85))
                     .help("尚未匹配，可继续改")
             }
         }
@@ -357,12 +363,12 @@ struct QuizView: View {
     private var summaryView: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 20) {
-                scoreChip(title: "正确", value: session.correctCount, tint: .green)
-                scoreChip(title: "答错词数", value: session.distinctWrongWordCount, tint: .red)
+                scoreChip(title: "正确", value: session.correctCount, tint: AppTheme.jade)
+                scoreChip(title: "答错词数", value: session.distinctWrongWordCount, tint: AppTheme.coral)
                 scoreChip(
                     title: "正确率",
                     valueText: "\(Int((session.accuracy * 100).rounded()))%",
-                    tint: .accentColor
+                    tint: AppTheme.jade
                 )
             }
 
@@ -392,7 +398,7 @@ struct QuizView: View {
                             )
                             Spacer()
                             Text("你的答案：\(item.userAnswer.isEmpty ? "（空）" : item.userAnswer)")
-                                .foregroundStyle(.red)
+                                .foregroundStyle(AppTheme.coral)
                             if let total = cumulativeWrongCount(for: item.item.id), total > 0 {
                                 Text("累计错 \(total) 次")
                                     .font(.caption)
@@ -433,7 +439,14 @@ struct QuizView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppTheme.mist.opacity(0.85))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(AppTheme.jade.opacity(0.12), lineWidth: 1)
+                )
+        )
     }
 
     private func answerBinding(at index: Int) -> Binding<String> {
