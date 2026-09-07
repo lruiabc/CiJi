@@ -136,11 +136,7 @@ struct AddWordSheet: View {
     }
 
     private func dictionaryService() -> YoudaoDictionaryService {
-        YoudaoDictionaryService(
-            appKey: settings.youdaoAppKey,
-            appSecret: settings.youdaoAppSecret,
-            allowMockFallback: settings.useMockOnFailure
-        )
+        YoudaoDictionaryService(allowMockFallback: settings.useMockOnFailure)
     }
 
     private func lookup() async {

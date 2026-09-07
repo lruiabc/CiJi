@@ -330,11 +330,7 @@ struct BatchImportSheet: View {
             category: "BatchImport"
         )
 
-        let service = YoudaoDictionaryService(
-            appKey: settings.youdaoAppKey,
-            appSecret: settings.youdaoAppSecret,
-            allowMockFallback: settings.useMockOnFailure
-        )
+        let service = YoudaoDictionaryService(allowMockFallback: settings.useMockOnFailure)
 
         var offset = 0
         while offset < fetchIndices.count {

@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 import os
 
 private let youdaoLog = Logger(subsystem: "app.ciji.mac", category: "Youdao")
@@ -27,7 +26,6 @@ enum DictionaryServiceError: LocalizedError, Sendable {
     case decoding(String)
     case timeout
     case emptyResult
-    case missingCredentials
 
     var errorDescription: String? {
         switch self {
@@ -35,31 +33,25 @@ enum DictionaryServiceError: LocalizedError, Sendable {
         case .invalidURL: return "无法创建请求地址"
         case .httpStatus(let code): return "网络错误（HTTP \(code)）"
         case .apiError(let message): return message
-        case .decoding(let detail): return "解析翻译结果失败：\(detail)"
+        case .decoding(let detail): return "解析词典结果失败：\(detail)"
         case .timeout: return "查询超时，请检查网络后重试"
         case .emptyResult: return "未获得有效翻译结果"
-        case .missingCredentials: return "请在设置中填写有道智云 AppKey 与应用密钥"
         }
     }
 }
 
-/// 有道智云文本翻译 API（官方）：https://openapi.youdao.com/api
+/// Free Youdao Dictionary web API (same style as Gloss / many Mac dict tools).
+/// Uses `dict.youdao.com/jsonapi` — no AppKey, no end-user cost.
 final class YoudaoDictionaryService: @unchecked Sendable {
-    private let appKey: String
-    private let appSecret: String
     private let allowMockFallback: Bool
     private let session: URLSession
     private let requestTimeout: TimeInterval
 
     init(
-        appKey: String,
-        appSecret: String,
         allowMockFallback: Bool = true,
         session: URLSession? = nil,
         requestTimeout: TimeInterval = 12
     ) {
-        self.appKey = appKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.appSecret = appSecret.trimmingCharacters(in: .whitespacesAndNewlines)
         self.allowMockFallback = allowMockFallback
         self.requestTimeout = requestTimeout
 
@@ -71,8 +63,9 @@ final class YoudaoDictionaryService: @unchecked Sendable {
             config.timeoutIntervalForResource = requestTimeout + 5
             config.waitsForConnectivity = false
             config.httpAdditionalHeaders = [
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+                "Accept": "application/json,*/*",
+                "Referer": "https://www.youdao.com/",
             ]
             self.session = URLSession(configuration: config)
         }
@@ -86,18 +79,14 @@ final class YoudaoDictionaryService: @unchecked Sendable {
         let lemma = EnglishLemmatizer.lemma(for: input)
 
         do {
-            guard !appKey.isEmpty, !appSecret.isEmpty else {
-                throw DictionaryServiceError.missingCredentials
-            }
-
-            async let youdaoTask = fetchYoudao(for: lemma)
+            async let youdaoTask = fetchJSONAPI(for: lemma)
             async let phoneticTask = IPAPhoneticService.fetchIPA(
                 for: lemma,
                 session: session,
                 timeout: requestTimeout
             )
             let youdao = try await youdaoTask
-            let enrichedPhonetic = (try? await phoneticTask) ?? ""
+            let enrichedPhonetic = await phoneticTask
 
             let phonetic: String
             if IPAPhoneticService.isPlausibleIPA(enrichedPhonetic) {
@@ -141,83 +130,71 @@ final class YoudaoDictionaryService: @unchecked Sendable {
         var phonetic: String
     }
 
-    private func fetchYoudao(for lemma: String) async throws -> YoudaoParseResult {
-        let salt = UUID().uuidString
-        let curtime = String(Int(Date().timeIntervalSince1970))
-        let sign = Self.sign(
-            appKey: appKey,
-            query: lemma,
-            salt: salt,
-            curtime: curtime,
-            appSecret: appSecret
-        )
-
-        guard let url = URL(string: "https://openapi.youdao.com/api") else {
-            throw DictionaryServiceError.invalidURL
+    private func fetchJSONAPI(for lemma: String) async throws -> YoudaoParseResult {
+        // Prefer compact ec+fanyi payload (used widely by free Youdao clients).
+        if let primary = try? await requestJSONAPI(lemma: lemma, includeAllDicts: false),
+           !primary.chinese.isEmpty {
+            return primary
         }
+        // Broader payload as fallback.
+        if let full = try? await requestJSONAPI(lemma: lemma, includeAllDicts: true),
+           !full.chinese.isEmpty {
+            return full
+        }
+        // Lightweight suggest endpoint.
+        return try await requestSuggest(lemma: lemma)
+    }
 
-        let formItems: [URLQueryItem] = [
+    private func requestJSONAPI(lemma: String, includeAllDicts: Bool) async throws -> YoudaoParseResult {
+        var components = URLComponents(string: "https://dict.youdao.com/jsonapi")
+        var items: [URLQueryItem] = [
             URLQueryItem(name: "q", value: lemma),
-            URLQueryItem(name: "from", value: "en"),
-            URLQueryItem(name: "to", value: "zh-CHS"),
-            URLQueryItem(name: "appKey", value: appKey),
-            URLQueryItem(name: "salt", value: salt),
-            URLQueryItem(name: "sign", value: sign),
-            URLQueryItem(name: "signType", value: "v3"),
-            URLQueryItem(name: "curtime", value: curtime),
+            URLQueryItem(name: "le", value: "en"),
+            URLQueryItem(name: "client", value: "macOS"),
+            URLQueryItem(name: "keyfrom", value: "macdict.ciji"),
         ]
-        var form = URLComponents()
-        form.queryItems = formItems
-        guard let body = form.percentEncodedQuery?.data(using: .utf8) else {
-            throw DictionaryServiceError.invalidURL
+        if !includeAllDicts {
+            // Request English-Chinese + machine translation blocks only.
+            let dicts = #"{"count":2,"dicts":[["ec"],["fanyi"]]}"#
+            items.append(URLQueryItem(name: "dicts", value: dicts))
         }
+        components?.queryItems = items
+        guard let url = components?.url else { throw DictionaryServiceError.invalidURL }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = body
+        let data = try await fetchData(from: url)
+        return try Self.parseJSONAPI(data: data)
+    }
 
-        let data: Data
-        let response: URLResponse
+    private func requestSuggest(lemma: String) async throws -> YoudaoParseResult {
+        var components = URLComponents(string: "https://dict.youdao.com/suggest")
+        components?.queryItems = [
+            URLQueryItem(name: "q", value: lemma),
+            URLQueryItem(name: "num", value: "1"),
+            URLQueryItem(name: "doctype", value: "json"),
+        ]
+        guard let url = components?.url else { throw DictionaryServiceError.invalidURL }
+        let data = try await fetchData(from: url)
+        return try Self.parseSuggest(data: data)
+    }
+
+    private func fetchData(from url: URL) async throws -> Data {
         do {
-            (data, response) = try await session.data(for: request)
+            let (data, response) = try await session.data(from: url)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                throw DictionaryServiceError.httpStatus(http.statusCode)
+            }
+            return data
         } catch let urlError as URLError where urlError.code == .timedOut {
             throw DictionaryServiceError.timeout
         }
-
-        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-            throw DictionaryServiceError.httpStatus(http.statusCode)
-        }
-
-        return try Self.parseResponse(data: data)
     }
 
-    // MARK: - Sign / Parse
+    // MARK: - Parse
 
-    static func truncateInput(_ q: String) -> String {
-        let chars = Array(q)
-        if chars.count <= 20 { return q }
-        let head = String(chars.prefix(10))
-        let tail = String(chars.suffix(10))
-        return "\(head)\(chars.count)\(tail)"
-    }
-
-    static func sign(appKey: String, query: String, salt: String, curtime: String, appSecret: String) -> String {
-        let input = truncateInput(query)
-        let raw = appKey + input + salt + curtime + appSecret
-        let digest = SHA256.hash(data: Data(raw.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
-
-    static func parseResponse(data: Data) throws -> YoudaoParseResult {
+    static func parseJSONAPI(data: Data) throws -> YoudaoParseResult {
         let json = try JSONSerialization.jsonObject(with: data, options: [])
         guard let root = json as? [String: Any] else {
             throw DictionaryServiceError.decoding("根节点不是对象")
-        }
-
-        let errorCode = String(describing: root["errorCode"] ?? "")
-        guard errorCode == "0" else {
-            throw DictionaryServiceError.apiError(Self.friendlyError(code: errorCode))
         }
 
         let chinese = pickChinese(from: root)
@@ -228,54 +205,117 @@ final class YoudaoDictionaryService: @unchecked Sendable {
         return YoudaoParseResult(chinese: chinese, phonetic: phonetic)
     }
 
-    static func pickChinese(from root: [String: Any]) -> String {
-        if let basic = root["basic"] as? [String: Any],
-           let explains = basic["explains"] as? [String] {
-            let lines = explains
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-            if !lines.isEmpty {
-                return lines.joined(separator: "；")
-            }
+    static func parseSuggest(data: Data) throws -> YoudaoParseResult {
+        let json = try JSONSerialization.jsonObject(with: data, options: [])
+        guard let root = json as? [String: Any],
+              let dataObj = root["data"] as? [String: Any],
+              let entries = dataObj["entries"] as? [[String: Any]],
+              let first = entries.first,
+              let explain = first["explain"] as? String
+        else {
+            throw DictionaryServiceError.emptyResult
         }
+        let chinese = explain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !chinese.isEmpty else { throw DictionaryServiceError.emptyResult }
+        return YoudaoParseResult(chinese: chinese, phonetic: "")
+    }
 
-        if let translation = root["translation"] as? [String] {
-            let joined = translation
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-                .joined(separator: "；")
+    static func pickChinese(from root: [String: Any]) -> String {
+        // 1) English-Chinese dictionary explains
+        if let ec = root["ec"] as? [String: Any],
+           let words = ec["word"] as? [[String: Any]] {
+            var lines: [String] = []
+            for word in words {
+                guard let trs = word["trs"] as? [[String: Any]] else { continue }
+                for trBlock in trs {
+                    if let trList = trBlock["tr"] as? [[String: Any]] {
+                        for tr in trList {
+                            if let text = flattenI(tr["l"]) {
+                                lines.append(text)
+                            }
+                        }
+                    }
+                    // Some payloads put explains directly under trs[].tran
+                    if let tran = trBlock["tran"] as? String {
+                        let trimmed = tran.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmed.isEmpty { lines.append(trimmed) }
+                    }
+                }
+            }
+            let joined = uniqueJoined(lines)
             if !joined.isEmpty { return joined }
         }
+
+        // 2) Machine translation block
+        if let fanyi = root["fanyi"] as? [String: Any],
+           let tran = fanyi["tran"] as? String {
+            let trimmed = tran.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+
+        // 3) Web translation first hit
+        if let web = root["web_trans"] as? [String: Any],
+           let list = web["web-translation"] as? [[String: Any]],
+           let first = list.first,
+           let trans = first["trans"] as? [[String: Any]],
+           let value = trans.first?["value"] as? String {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+
         return ""
     }
 
     static func pickPhonetic(from root: [String: Any]) -> String {
-        guard let basic = root["basic"] as? [String: Any] else { return "" }
-        let candidates = ["us-phonetic", "uk-phonetic", "phonetic"]
-        for key in candidates {
-            if let value = basic[key] as? String {
-                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty { return trimmed }
+        if let ec = root["ec"] as? [String: Any],
+           let words = ec["word"] as? [[String: Any]],
+           let first = words.first {
+            for key in ["usphone", "ukphone", "phone"] {
+                if let value = first[key] as? String {
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { return trimmed }
+                }
+            }
+        }
+        if let simple = root["simple"] as? [String: Any],
+           let words = simple["word"] as? [[String: Any]],
+           let first = words.first {
+            for key in ["usphone", "ukphone"] {
+                if let value = first[key] as? String {
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { return trimmed }
+                }
             }
         }
         return ""
     }
 
-    static func friendlyError(code: String) -> String {
-        switch code {
-        case "101": return "有道：缺少必填参数"
-        case "102": return "有道：不支持的语言类型"
-        case "103": return "有道：翻译文本过长"
-        case "108": return "有道：应用ID无效，请检查 AppKey"
-        case "110": return "有道：无相关服务的有效实例"
-        case "111": return "有道：开发者账号无效"
-        case "112": return "有道：请求服务无效"
-        case "113": return "有道：查询为空"
-        case "202": return "有道：签名校验失败，请检查 AppKey / 密钥"
-        case "401": return "有道：账户已经欠费"
-        case "411": return "有道：访问频率受限"
-        default: return "有道接口错误（code \(code)）"
+    /// Flatten Youdao `l.i` which may be String or [String].
+    private static func flattenI(_ value: Any?) -> String? {
+        guard let l = value as? [String: Any] else { return nil }
+        if let i = l["i"] as? String {
+            let trimmed = i.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
         }
+        if let arr = l["i"] as? [Any] {
+            let parts = arr.compactMap { $0 as? String }
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            guard !parts.isEmpty else { return nil }
+            return parts.joined(separator: "；")
+        }
+        return nil
+    }
+
+    private static func uniqueJoined(_ lines: [String]) -> String {
+        var seen = Set<String>()
+        var result: [String] = []
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
+            result.append(trimmed)
+        }
+        return result.joined(separator: "；")
     }
 
     // MARK: - Mock

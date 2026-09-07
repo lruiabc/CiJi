@@ -61,30 +61,21 @@ struct IPAPhoneticServiceTests {
 }
 
 struct YoudaoDictionaryParsingTests {
-    @Test func parseBasicExplains() throws {
+    @Test func parseJSONAPIEnglishChinese() throws {
         let json = """
-        {"errorCode":"0","query":"apple","translation":["苹果"],"basic":{"us-phonetic":"ˈæpl","explains":["n. 苹果","n. 苹果公司"]}}
+        {"input":"apple","ec":{"word":[{"usphone":"ˈæp(ə)l","ukphone":"ˈæp(ə)l","trs":[{"tr":[{"l":{"i":["n. 苹果；苹果树"]}}]}]}]}}
         """.data(using: .utf8)!
-        let parsed = try YoudaoDictionaryService.parseResponse(data: json)
+        let parsed = try YoudaoDictionaryService.parseJSONAPI(data: json)
         #expect(parsed.chinese.contains("苹果"))
-        #expect(parsed.phonetic.contains("æpl"))
+        #expect(parsed.phonetic.contains("æp"))
     }
 
-    @Test func signIsStableSHA256() {
-        let sign = YoudaoDictionaryService.sign(
-            appKey: "key",
-            query: "apple",
-            salt: "salt",
-            curtime: "1",
-            appSecret: "secret"
-        )
-        #expect(sign.count == 64)
-    }
-
-    @Test func truncateLongInput() {
-        let q = String(repeating: "a", count: 25)
-        let truncated = YoudaoDictionaryService.truncateInput(q)
-        #expect(truncated == "aaaaaaaaaa25aaaaaaaaaa")
+    @Test func parseSuggest() throws {
+        let json = """
+        {"result":{"msg":"success","code":200},"data":{"entries":[{"explain":"n. 苹果","entry":"apple"}],"query":"apple"}}
+        """.data(using: .utf8)!
+        let parsed = try YoudaoDictionaryService.parseSuggest(data: json)
+        #expect(parsed.chinese == "n. 苹果")
     }
 
     @Test func mockResultContainsKnownWord() {

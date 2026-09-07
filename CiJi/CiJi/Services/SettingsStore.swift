@@ -7,8 +7,6 @@ final class SettingsStore: ObservableObject {
         static let defaultGroupCapacity = "defaultGroupCapacity"
         static let preferUSAccent = "preferUSAccent"
         static let useMockOnFailure = "useMockOnFailure"
-        static let youdaoAppKey = "youdaoAppKey"
-        static let youdaoAppSecret = "youdaoAppSecret"
     }
 
     @Published var defaultGroupCapacity: Int {
@@ -20,24 +18,9 @@ final class SettingsStore: ObservableObject {
         didSet { UserDefaults.standard.set(preferUSAccent, forKey: Keys.preferUSAccent) }
     }
 
-    /// 网络失败 / 未配置密钥时回退到本地示例释义
+    /// 网络失败时回退到本地示例释义
     @Published var useMockOnFailure: Bool {
         didSet { UserDefaults.standard.set(useMockOnFailure, forKey: Keys.useMockOnFailure) }
-    }
-
-    /// 有道智云应用 ID（AppKey）
-    @Published var youdaoAppKey: String {
-        didSet { UserDefaults.standard.set(youdaoAppKey, forKey: Keys.youdaoAppKey) }
-    }
-
-    /// 有道智云应用密钥
-    @Published var youdaoAppSecret: String {
-        didSet { UserDefaults.standard.set(youdaoAppSecret, forKey: Keys.youdaoAppSecret) }
-    }
-
-    var hasYoudaoCredentials: Bool {
-        !youdaoAppKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !youdaoAppSecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     init() {
@@ -45,14 +28,11 @@ final class SettingsStore: ObservableObject {
         let capacity = defaults.object(forKey: Keys.defaultGroupCapacity) as? Int
         self.defaultGroupCapacity = capacity ?? 20
         self.preferUSAccent = defaults.object(forKey: Keys.preferUSAccent) as? Bool ?? true
-        // migrate old key if present
         if defaults.object(forKey: Keys.useMockOnFailure) == nil,
            let old = defaults.object(forKey: "useMockWhenNoKey") as? Bool {
             self.useMockOnFailure = old
         } else {
             self.useMockOnFailure = defaults.object(forKey: Keys.useMockOnFailure) as? Bool ?? true
         }
-        self.youdaoAppKey = defaults.string(forKey: Keys.youdaoAppKey) ?? ""
-        self.youdaoAppSecret = defaults.string(forKey: Keys.youdaoAppSecret) ?? ""
     }
 }

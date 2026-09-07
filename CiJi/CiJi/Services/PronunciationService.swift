@@ -55,16 +55,16 @@ final class PronunciationService: ObservableObject {
         lastError = nil
         stop()
 
-        // Prefer Google TTS; fall back to system speech if the stream fails.
+        // Prefer Youdao dictvoice (same free web source as lookup); fall back to system speech.
         let encoded = word.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? word
-        let urlString =
-            "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=\(accent.googleTL)&q=\(encoded)"
+        let type = accent == .us ? "2" : "1"
+        let urlString = "https://dict.youdao.com/dictvoice?audio=\(encoded)&type=\(type)"
         guard let url = URL(string: urlString) else {
             speakLocally(word: word, accent: accent)
             return
         }
 
-        speechLog.debug("Play TTS \(word, privacy: .public)")
+        speechLog.debug("Play Youdao voice \(word, privacy: .public)")
 
         let item = AVPlayerItem(url: url)
         let newPlayer = AVPlayer(playerItem: item)
@@ -86,7 +86,7 @@ final class PronunciationService: ObservableObject {
         statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             Task { @MainActor in
                 if item.status == .failed {
-                    speechLog.error("Google TTS failed — falling back to AVSpeech")
+                    speechLog.error("Youdao voice failed — falling back to AVSpeech")
                     self?.stopPlayerOnly()
                     self?.speakLocally(word: word, accent: accent)
                 }
