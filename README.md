@@ -106,3 +106,40 @@ CiJi/
 ## 许可证
 
 私有项目；按你的发布需要自行补充。
+
+## 上架 Mac App Store（美国 · 免费）
+
+工程已准备为 **Version 1.0.0 / Build 1**。云端无法替你上传，请在自己的 Mac 上完成：
+
+### A. Xcode 打包上传
+1. 打开 `CiJi/CiJi.xcodeproj`
+2. Target **CiJi** → **Signing & Capabilities**
+   - 勾选 Automatically manage signing
+   - **Team** 选你的 Apple Developer 账号
+3. 确认 Capabilities：App Sandbox、Outgoing Connections（Client）
+4. 菜单 **Product → Archive**
+5. Organizer → **Distribute App** → **App Store Connect** → **Upload**
+
+### B. App Store Connect 创建应用
+1. [App Store Connect](https://appstoreconnect.apple.com) → 我的 App → **+**
+2. 平台：**macOS**
+3. 名称：可用 `CiJian` / `词笺`（以当时可用名为准）
+4. 主要语言：**English (U.S.)**
+5. Bundle ID：选 `app.ciji.mac`
+6. SKU：例如 `cijian-mac-001`
+
+### C. 定价与销售范围（按你的要求）
+1. **定价**：Free（免费）
+2. **销售范围**：只勾选 **United States**（不要选其他国家/地区）
+
+### D. 上架资料（最少）
+- Mac 截图（建议 1280×800 或 App Store 要求尺寸）
+- 英文简介（面向美国区展示；App 内仍可为中文界面，适合在美学习英语的中文用户）
+- 分类：Education
+- 隐私政策 URL（必填；写明会联网访问有道词典做查词/发音，词库存在本机）
+- App 隐私问卷：不收集可识别身份信息；声明联网用途
+- 选中刚上传的构建版本 → **提交审核**
+
+### E. 审核备注建议（英文）
+说明：免费英语单词本；查词/发音需网络访问 Youdao dictionary endpoints；无需登录；仅美国区免费分发。
+
