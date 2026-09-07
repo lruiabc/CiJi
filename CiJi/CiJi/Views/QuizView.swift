@@ -399,11 +399,11 @@ struct QuizView: View {
                             Spacer()
                             Text("你的答案：\(item.userAnswer.isEmpty ? "（空）" : item.userAnswer)")
                                 .foregroundStyle(AppTheme.coral)
-                            if let total = cumulativeWrongCount(for: item.item.id), total > 0 {
-                                Text("累计错 \(total) 次")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                        }
+                        if let total = cumulativeWrongCount(for: item.item.id), total > 0 {
+                            Text("累计错 \(total) 次")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                         Text("参考：\(item.item.chinese)")
                             .font(.callout)
@@ -447,6 +447,10 @@ struct QuizView: View {
                         .strokeBorder(AppTheme.jade.opacity(0.12), lineWidth: 1)
                 )
         )
+    }
+
+    private func cumulativeWrongCount(for wordID: UUID) -> Int? {
+        allWords.first(where: { $0.uuid == wordID })?.wrongAnswerCount
     }
 
     private func answerBinding(at index: Int) -> Binding<String> {
