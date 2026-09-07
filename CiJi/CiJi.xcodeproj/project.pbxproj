@@ -31,6 +31,7 @@
 		A10000000000000000000019 /* QuizAnswerMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* QuizAnswerMatcherTests.swift */; };
 		A1000000000000000000001A /* PracticeRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001A /* PracticeRecord.swift */; };
 		A1000000000000000000001B /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001B /* AppTheme.swift */; };
+		A1000000000000000000001C /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001C /* AppIcon.icns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +72,7 @@
 		B10000000000000000000019 /* QuizAnswerMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizAnswerMatcherTests.swift; sourceTree = "<group>"; };
 		B1000000000000000000001A /* PracticeRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeRecord.swift; sourceTree = "<group>"; };
 		B1000000000000000000001B /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		B1000000000000000000001C /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = AppIcon.icns; path = Resources/AppIcon.icns; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,6 +110,7 @@
 				G10000000000000000000004 /* Services */,
 				G10000000000000000000005 /* Views */,
 				B1000000000000000000000C /* Assets.xcassets */,
+				B1000000000000000000001C /* AppIcon.icns */,
 				B1000000000000000000000F /* CiJi.entitlements */,
 			);
 			path = CiJi;
@@ -262,6 +265,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000000000000000000000C /* Assets.xcassets in Resources */,
+				A1000000000000000000001C /* AppIcon.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -360,6 +364,8 @@
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "词笺";
+				INFOPLIST_KEY_CFBundleIconFile = AppIcon;
+				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -389,6 +395,8 @@
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "词笺";
+				INFOPLIST_KEY_CFBundleIconFile = AppIcon;
+				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026";
 				LD_RUNPATH_SEARCH_PATHS = (
