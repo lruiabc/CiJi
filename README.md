@@ -109,16 +109,25 @@ CiJi/
 
 ## 上架 Mac App Store（美国 · 免费）
 
-工程已准备为 **Version 1.0.0 / Build 1**。云端无法替你上传，请在自己的 Mac 上完成：
+工程已准备为 **Version 1.0.0 / Build 2**。云端无法替你上传，请在自己的 Mac 上完成：
 
 ### A. Xcode 打包上传
-1. 打开 `CiJi/CiJi.xcodeproj`
-2. Target **CiJi** → **Signing & Capabilities**
+1. `git pull` 后打开 `CiJi/CiJi.xcodeproj`
+2. Target **CiJi** → **General** → **App Icons**：确认是 **AppIcon**（来自 `Assets.xcassets`，含 `walt.e@example.net` 1024×1024）
+3. Target **CiJi** → **Signing & Capabilities**
    - 勾选 Automatically manage signing
    - **Team** 选你的 Apple Developer 账号
-3. 确认 Capabilities：App Sandbox、Outgoing Connections（Client）
-4. 菜单 **Product → Archive**
-5. Organizer → **Distribute App** → **App Store Connect** → **Upload**
+4. 确认 Capabilities：App Sandbox、Outgoing Connections（Client）
+5. **Product → Clean Build Folder**，再 **Product → Archive**（不要用旧 Archive）
+6. 上传前可本机校验图标（把路径换成你的 `.app`）：
+
+```bash
+bash CiJi/scripts/verify-app-icon.sh "/path/to/CiJi.app"
+```
+
+应看到 `OK: App Store 512 / 512@2x icons are present.`  
+Archive 包内也应有 `Contents/Resources/AppIcon.icns`（由 Xcode 从 Asset Catalog 生成，勿再手动拷贝手写 `.icns`）。
+7. Organizer → **Distribute App** → **App Store Connect** → **Upload**
 
 ### B. App Store Connect 创建应用
 1. [App Store Connect](https://appstoreconnect.apple.com) → 我的 App → **+**
