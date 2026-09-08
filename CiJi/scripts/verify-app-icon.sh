@@ -18,7 +18,7 @@ echo "== Info.plist icon keys =="
 
 if [[ ! -f "$ICNS" ]]; then
   echo "FAIL: missing $ICNS"
-  echo "Assets.xcassets AppIcon.appiconset must include walt.e@example.net (1024×1024),"
+  echo "Assets.xcassets AppIcon.appiconset must include icon_1024.png (1024×1024 for 512pt @2x),"
   echo "and Target build setting ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon."
   exit 1
 fi

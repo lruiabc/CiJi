@@ -109,16 +109,16 @@ CiJi/
 
 ## 上架 Mac App Store（美国 · 免费）
 
-工程已准备为 **Version 1.0.0 / Build 2**。云端无法替你上传，请在自己的 Mac 上完成：
+工程已准备为 **Version 1.0.0 / Build 3**。云端无法替你上传，请在自己的 Mac 上完成：
 
 ### A. Xcode 打包上传
 1. `git pull` 后打开 `CiJi/CiJi.xcodeproj`
-2. Target **CiJi** → **General** → **App Icons**：确认是 **AppIcon**（来自 `Assets.xcassets`，含 `walt.e@example.net` 1024×1024）
+2. Target **CiJi** → **General** → **App Icons**：确认是 **AppIcon**（`Assets.xcassets/AppIcon.appiconset`，其中 `icon_1024.png` = 1024×1024，对应 512pt @2x）
 3. Target **CiJi** → **Signing & Capabilities**
    - 勾选 Automatically manage signing
    - **Team** 选你的 Apple Developer 账号
 4. 确认 Capabilities：App Sandbox、Outgoing Connections（Client）
-5. **Product → Clean Build Folder**，再 **Product → Archive**（不要用旧 Archive）
+5. **Product → Clean Build Folder**，再 **Product → Archive**（不要用旧 Archive；也不要再上传 Build 2）
 6. 上传前可本机校验图标（把路径换成你的 `.app`）：
 
 ```bash
