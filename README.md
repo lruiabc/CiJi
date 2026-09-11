@@ -109,7 +109,7 @@ CiJi/
 
 ## 上架 Mac App Store（美国 · 免费）
 
-工程已准备为 **Version 1.0.0 / Build 3**。云端无法替你上传，请在自己的 Mac 上完成：
+工程已准备为 **Version 1.0.0 / Build 4**。云端无法替你上传，请在自己的 Mac 上完成：
 
 ### A. Xcode 打包上传
 1. `git pull` 后打开 `CiJi/CiJi.xcodeproj`
@@ -118,7 +118,7 @@ CiJi/
    - 勾选 Automatically manage signing
    - **Team** 选你的 Apple Developer 账号
 4. 确认 Capabilities：App Sandbox、Outgoing Connections（Client）
-5. **Product → Clean Build Folder**，再 **Product → Archive**（不要用旧 Archive；也不要再上传 Build 2）
+5. **Product → Clean Build Folder**，再 **Product → Archive**（不要用旧 Archive；请上传 Build 4（勿再用已拒的旧构建））
 6. 上传前可本机校验图标（把路径换成你的 `.app`）：
 
 ```bash

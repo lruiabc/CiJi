@@ -1,8 +1,18 @@
 import SwiftUI
 import SwiftData
+import AppKit
+
+/// Single-window Mac behavior for App Review Guideline 4:
+/// quit when the last window closes; Dock reopen is handled by the system / Window scene.
+final class CiJiAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+}
 
 @main
 struct CiJiApp: App {
+    @NSApplicationDelegateAdaptor(CiJiAppDelegate.self) private var appDelegate
     @StateObject private var settings = SettingsStore()
     @StateObject private var pronunciation = PronunciationService()
 
@@ -32,7 +42,8 @@ struct CiJiApp: App {
     }()
 
     var body: some Scene {
-        WindowGroup {
+        // Unique single window: macOS lists it under Window so it can be reopened after close.
+        Window("词笺", id: "main") {
             ContentView()
                 .environmentObject(settings)
                 .environmentObject(pronunciation)
@@ -42,6 +53,7 @@ struct CiJiApp: App {
         .defaultSize(width: 1100, height: 720)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            OpenMainWindowCommands()
         }
 
         Settings {
@@ -49,6 +61,20 @@ struct CiJiApp: App {
                 .environmentObject(settings)
                 .environmentObject(pronunciation)
                 .frame(width: 440, height: 320)
+        }
+    }
+}
+
+/// Explicit Window-menu action so the main UI can be restored after the user closes it.
+private struct OpenMainWindowCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(after: .windowArrangement) {
+            Button("词笺") {
+                openWindow(id: "main")
+            }
+            .keyboardShortcut("0", modifiers: [.command])
         }
     }
 }
