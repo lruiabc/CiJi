@@ -90,7 +90,7 @@ struct BatchImportSheet: View {
     private var inputPhase: some View {
         Form {
             Section {
-                Text("每行一个英文单词或短语（如 look forward to）。同一行也可用逗号/制表符分隔多个词条。可多选默认分组；预览阶段还能批量改组或逐条调整。")
+                Text("每行一个英文单词或短语（如 look forward to）。同一行也可用逗号/制表符分隔多个词条。可多选默认分组；预览阶段还能批量改组或逐条调整。词库已有的词条会直接复用音标与中文，不再联网查询。")
                     .foregroundStyle(.secondary)
                     .font(.callout)
             }
@@ -318,10 +318,15 @@ struct BatchImportSheet: View {
                 seen.insert(lemma)
 
                 var draft = ImportDraft(english: raw, groupSelection: defaultGroupSelection)
-                if existingByEnglish[lemma] != nil {
+                if let existing = existingByEnglish[lemma] ?? existingByEnglish[raw] {
+                    // Reuse library gloss — do not call the dictionary API again.
                     draft.alreadyExists = true
-                    draft.english = lemma
-                    draft.message = "词库已有，将追加所选分组"
+                    draft.english = existing.english
+                    draft.phonetic = existing.phonetic
+                    draft.chinese = existing.chinese
+                    draft.source = existing.source.isEmpty ? "library" : existing.source
+                    draft.status = .ready
+                    draft.message = "词库已有，已填入音标与中文"
                 }
                 built.append(draft)
             }
@@ -329,14 +334,14 @@ struct BatchImportSheet: View {
 
         drafts = built
         bulkSelection = defaultGroupSelection
-        let fetchIndices = built.indices // look up all, including existing (refresh gloss)
+        let fetchIndices = built.indices.filter { !built[$0].alreadyExists } // skip library hits
         progressTotal = fetchIndices.count
         progressDone = 0
         isLookingUp = true
 
         batchLog.info("Batch start: \(built.count) drafts")
         AppLog.console(
-            "开始批量查询 \(fetchIndices.count) 个单词（并发 \(maxConcurrentLookups)）",
+            "开始批量查询：联网 \(fetchIndices.count) 个，词库复用 \(built.filter(\.alreadyExists).count) 个（并发 \(maxConcurrentLookups)）",
             category: "BatchImport"
         )
 

@@ -73,7 +73,7 @@ struct AddWordSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                     } else {
-                        Text("可输入单词或短语。单词会尝试还原为原型；短语按原样查询，并显示音标、中文与发音。")
+                        Text("可输入单词或短语。若词库已有该词条，将直接填入已有音标与中文，不再联网查询。")
                             .foregroundStyle(.secondary)
                     }
 
@@ -132,6 +132,7 @@ struct AddWordSheet: View {
 
     private func sourceLabel(_ source: String) -> String {
         switch source {
+        case "library": return "词库"
         case "youdao": return "有道"
         case "mock": return "本地示例"
         case "google": return "Google（旧）"
@@ -150,6 +151,27 @@ struct AddWordSheet: View {
         let word = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else {
             errorMessage = "请输入英文单词或短语"
+            return
+        }
+
+        let normalized = word.lowercased()
+        let lemma = EnglishLemmatizer.lemma(for: normalized)
+
+        // Reuse library entry — skip network / dictionary lookup.
+        if let existing = existingWords.first(where: { $0.english == lemma || $0.english == normalized }) {
+            let inputForm = normalized != existing.english ? normalized : nil
+            preview = DictionaryLookupResult(
+                english: existing.english,
+                phonetic: existing.phonetic,
+                chinese: existing.chinese,
+                source: "library",
+                inputForm: inputForm
+            )
+            infoMessage = "词库已有「\(existing.english)」，已填入音标与中文；保存时会追加所选分组。"
+            AppLog.console(
+                "词库命中 输入=\(word) → \(existing.english) | 音标=\(existing.phonetic) | 中文=\(existing.chinese)（未联网）",
+                category: "AddWord"
+            )
             return
         }
 
@@ -173,10 +195,6 @@ struct AddWordSheet: View {
             if result.phonetic.isEmpty {
                 let phNote = "未找到 IPA 音标（词典源暂无该词读音）。"
                 infoMessage = [infoMessage, phNote].compactMap { $0 }.joined(separator: " ")
-            }
-            if existingWords.contains(where: { $0.english == result.english.lowercased() }) {
-                let existNote = "词库已有「\(result.english)」，保存时会追加所选分组。"
-                infoMessage = [infoMessage, existNote].compactMap { $0 }.joined(separator: " ")
             }
         } catch {
             errorMessage = error.localizedDescription
