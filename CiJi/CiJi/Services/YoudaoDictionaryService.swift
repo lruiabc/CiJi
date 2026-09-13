@@ -29,7 +29,7 @@ enum DictionaryServiceError: LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .emptyQuery: return "请输入英文单词"
+        case .emptyQuery: return "请输入英文单词或短语"
         case .invalidURL: return "无法创建请求地址"
         case .httpStatus(let code): return "网络错误（HTTP \(code)）"
         case .apiError(let message): return message

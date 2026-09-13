@@ -174,7 +174,7 @@ final class QuizSession: ObservableObject {
         return nil
     }
 
-    /// Grade all prompts on this page. Any one Chinese sense counts as correct.
+    /// Grade all prompts on this page. Any one *complete* Chinese sense counts as correct (no partial fragments).
     func checkPage() {
         guard phase == .practicing, !pageChecked else { return }
         var graded: [Prompt] = []

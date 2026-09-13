@@ -79,7 +79,7 @@ struct BatchImportSheet: View {
             .alert("导入完成", isPresented: $didSave) {
                 Button("好") { dismiss() }
             } message: {
-                Text(statusMessage ?? "单词已加入词库。")
+                Text(statusMessage ?? "词条已加入词库。")
             }
         }
         .frame(minWidth: 780, minHeight: 560)
@@ -90,12 +90,12 @@ struct BatchImportSheet: View {
     private var inputPhase: some View {
         Form {
             Section {
-                Text("每行一个英文单词。可多选默认分组；预览阶段还能批量改组或逐词调整。同一单词可属于多个分组。")
+                Text("每行一个英文单词或短语（如 look forward to）。同一行也可用逗号/制表符分隔多个词条。可多选默认分组；预览阶段还能批量改组或逐条调整。")
                     .foregroundStyle(.secondary)
                     .font(.callout)
             }
 
-            Section("单词列表") {
+            Section("词条列表") {
                 TextEditor(text: $rawText)
                     .font(.body.monospaced())
                     .frame(minHeight: 200)
@@ -304,143 +304,25 @@ struct BatchImportSheet: View {
         var seen = Set<String>()
         var built: [ImportDraft] = []
         for line in lines {
-            let token = line.split(whereSeparator: { $0 == "," || $0 == "\t" || $0 == " " }).first.map(String.init) ?? line
-            let raw = token.lowercased()
-            guard !raw.isEmpty else { continue }
-            let lemma = EnglishLemmatizer.lemma(for: raw)
-            if seen.contains(lemma) { continue }
-            seen.insert(lemma)
+            // Keep spaces so phrases like "look forward to" stay intact.
+            // Only comma / tab start a new entry on the same line.
+            let entries = line
+                .split(whereSeparator: { $0 == "," || $0 == "\t" })
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            for token in entries {
+                let raw = token.lowercased()
+                guard !raw.isEmpty else { continue }
+                let lemma = EnglishLemmatizer.lemma(for: raw)
+                if seen.contains(lemma) { continue }
+                seen.insert(lemma)
 
-            var draft = ImportDraft(english: raw, groupSelection: defaultGroupSelection)
-            if existingByEnglish[lemma] != nil {
-                draft.alreadyExists = true
-                draft.english = lemma
-                draft.message = "词库已有，将追加所选分组"
-            }
-            built.append(draft)
-        }
-
-        drafts = built
-        bulkSelection = defaultGroupSelection
-        let fetchIndices = built.indices // look up all, including existing (refresh gloss)
-        progressTotal = fetchIndices.count
-        progressDone = 0
-        isLookingUp = true
-
-        batchLog.info("Batch start: \(built.count) drafts")
-        AppLog.console(
-            "开始批量查询 \(fetchIndices.count) 个单词（并发 \(maxConcurrentLookups)）",
-            category: "BatchImport"
-        )
-
-        let service = YoudaoDictionaryService(allowMockFallback: settings.useMockOnFailure)
-
-        var offset = 0
-        while offset < fetchIndices.count {
-            if Task.isCancelled { break }
-            let end = min(offset + maxConcurrentLookups, fetchIndices.count)
-            let chunk = Array(fetchIndices[offset..<end])
-
-            for index in chunk {
-                drafts[index].status = .loading
-            }
-
-            await withTaskGroup(of: (Int, Result<DictionaryLookupResult, Error>).self) { group in
-                for index in chunk {
-                    let word = drafts[index].english
-                    group.addTask {
-                        do {
-                            let result = try await service.lookup(word: word)
-                            return (index, .success(result))
-                        } catch {
-                            return (index, .failure(error))
-                        }
-                    }
+                var draft = ImportDraft(english: raw, groupSelection: defaultGroupSelection)
+                if existingByEnglish[lemma] != nil {
+                    draft.alreadyExists = true
+                    draft.english = lemma
+                    draft.message = "词库已有，将追加所选分组"
                 }
-
-                for await (index, result) in group {
-                    if Task.isCancelled { break }
-                    switch result {
-                    case .success(let lookup):
-                        drafts[index].english = lookup.english
-                        drafts[index].phonetic = lookup.phonetic
-                        drafts[index].chinese = lookup.chinese
-                        drafts[index].source = lookup.source
-                        drafts[index].status = .ready
-                        if drafts[index].alreadyExists {
-                            drafts[index].message = "词库已有，将追加所选分组"
-                        } else if lookup.wasLemmatized, let inputForm = lookup.inputForm {
-                            drafts[index].message = "由 \(inputForm) 还原"
-                        }
-                    case .failure(let error):
-                        if drafts[index].alreadyExists {
-                            drafts[index].status = .ready
-                            drafts[index].message = "词库已有（刷新释义失败）：仍可追加分组"
-                        } else {
-                            drafts[index].status = .failed
-                            drafts[index].message = error.localizedDescription
-                            batchLog.error(
-                                "Fail \(drafts[index].english, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                            )
-                        }
-                    }
-                    progressDone += 1
-                }
-            }
-
-            offset = end
-        }
-
-        isLookingUp = false
-        lookupTask = nil
-        batchLog.info("Batch finished: ready=\(self.savableCount) failed=\(self.failedCount)")
-        AppLog.console(
-            "批量查询结束：可写入 \(savableCount)，失败 \(failedCount)",
-            category: "BatchImport"
-        )
-    }
-
-    private func commit() {
-        var created = 0
-        var merged = 0
-        let existingByEnglish = Dictionary(uniqueKeysWithValues: existingWords.map { ($0.english, $0) })
-
-        for draft in drafts where draft.status == .ready {
-            let targetGroups = draft.groupSelection.resolve(from: groups)
-            let key = draft.english.lowercased()
-            if let existing = existingByEnglish[key] {
-                for group in targetGroups {
-                    existing.addToGroup(group)
-                }
-                if existing.phonetic.isEmpty, !draft.phonetic.isEmpty {
-                    existing.phonetic = draft.phonetic
-                }
-                if existing.chinese.isEmpty, !draft.chinese.isEmpty {
-                    existing.chinese = draft.chinese
-                }
-                merged += 1
-                AppLog.console(
-                    "追加 \(draft.english) → \(draft.groupSelection.summary(from: groups))",
-                    category: "BatchImport"
-                )
-            } else {
-                let word = Word(
-                    english: draft.english,
-                    phonetic: draft.phonetic,
-                    chinese: draft.chinese,
-                    source: draft.source.isEmpty ? "youdao" : draft.source,
-                    groups: targetGroups
-                )
-                modelContext.insert(word)
-                created += 1
-                AppLog.console(
-                    "新建 \(draft.english) → \(draft.groupSelection.summary(from: groups))，中文=\(draft.chinese)",
-                    category: "BatchImport"
-                )
+                built.append(draft)
             }
         }
-        try? modelContext.save()
-        statusMessage = "新建 \(created) 个，追加分组 \(merged) 个。"
-        didSave = true
-    }
-}

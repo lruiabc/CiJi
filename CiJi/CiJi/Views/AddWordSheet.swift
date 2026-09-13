@@ -24,9 +24,9 @@ struct AddWordSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("英文单词") {
+                Section("英文单词 / 短语") {
                     HStack(spacing: 10) {
-                        TextField("例如：resilient", text: $input)
+                        TextField("例如：resilient 或 look forward to", text: $input)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit { Task { await lookup() } }
 
@@ -73,7 +73,7 @@ struct AddWordSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                     } else {
-                        Text("输入单词任意形式均可。系统会还原为原型，并显示音标、中文与发音。")
+                        Text("可输入单词或短语。单词会尝试还原为原型；短语按原样查询，并显示音标、中文与发音。")
                             .foregroundStyle(.secondary)
                     }
 
@@ -91,14 +91,14 @@ struct AddWordSheet: View {
 
                 Section("放入分组（可多选）") {
                     GroupMultiPicker(selection: $groupSelection, groups: groups)
-                    Text("同一单词可同时属于多个分组。若词库已有该词，将把所选分组追加进去。")
+                    Text("同一词条可同时属于多个分组。若词库已有该词条，将把所选分组追加进去。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)
             .padding()
-            .navigationTitle("添加单词")
+            .navigationTitle("添加词条")
             #if os(macOS)
             .navigationSubtitle(AppTheme.brandName)
             #endif
@@ -149,7 +149,7 @@ struct AddWordSheet: View {
         preview = nil
         let word = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else {
-            errorMessage = "请输入英文单词"
+            errorMessage = "请输入英文单词或短语"
             return
         }
 

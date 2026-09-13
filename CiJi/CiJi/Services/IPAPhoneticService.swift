@@ -8,23 +8,45 @@ private let ipaLog = Logger(subsystem: "app.ciji.mac", category: "IPA")
 enum IPAPhoneticService {
     /// Returns a slash-wrapped IPA string such as `/ɪnˈtenʃənəl/`, or `""`.
     static func fetchIPA(for lemma: String, session: URLSession, timeout: TimeInterval) async -> String {
-        let word = lemma.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !word.isEmpty else { return "" }
+        let phrase = lemma.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !phrase.isEmpty else { return "" }
 
+        // Prefer a single lookup first (works for words and some fixed phrases).
+        if let whole = await lookupSingleTokenIPA(phrase, session: session, timeout: timeout), !whole.isEmpty {
+            return whole
+        }
+
+        // For multi-word phrases, fall back to per-word IPA joined with spaces.
+        let tokens = phrase.split(whereSeparator: { $0 == " " || $0 == "-" }).map(String.init).filter { !$0.isEmpty }
+        if tokens.count > 1 {
+            var parts: [String] = []
+            for token in tokens {
+                if let part = await lookupSingleTokenIPA(token, session: session, timeout: timeout), !part.isEmpty {
+                    let bare = part.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                    parts.append(bare)
+                }
+            }
+            if !parts.isEmpty {
+                return "/" + parts.joined(separator: " ") + "/"
+            }
+        }
+
+        ipaLog.error("IPA unavailable for \(phrase, privacy: .public)")
+        return ""
+    }
+
+    private static func lookupSingleTokenIPA(_ word: String, session: URLSession, timeout: TimeInterval) async -> String? {
         if let fromDict = try? await fetchFromFreeDictionary(word: word, session: session, timeout: min(timeout, 8)),
            !fromDict.isEmpty {
             ipaLog.info("IPA FreeDict \(word, privacy: .public)=\(fromDict, privacy: .public)")
             return fromDict
         }
-
         if let fromDatamuse = try? await fetchFromDatamuse(word: word, session: session, timeout: min(timeout, 8)),
            !fromDatamuse.isEmpty {
             ipaLog.info("IPA Datamuse \(word, privacy: .public)=\(fromDatamuse, privacy: .public)")
             return fromDatamuse
         }
-
-        ipaLog.error("IPA unavailable for \(word, privacy: .public)")
-        return ""
+        return nil
     }
 
     // MARK: - Free Dictionary (IPA text)

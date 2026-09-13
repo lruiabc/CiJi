@@ -47,6 +47,7 @@ struct CiJiApp: App {
             ContentView()
                 .environmentObject(settings)
                 .environmentObject(pronunciation)
+                .preferredColorScheme(.light)
                 .frame(minWidth: 960, minHeight: 620)
         }
         .modelContainer(sharedModelContainer)
@@ -60,6 +61,7 @@ struct CiJiApp: App {
             SettingsView()
                 .environmentObject(settings)
                 .environmentObject(pronunciation)
+                .preferredColorScheme(.light)
                 .frame(width: 440, height: 320)
         }
     }

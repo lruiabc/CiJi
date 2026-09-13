@@ -93,7 +93,7 @@ struct ContentView: View {
             Button("取消", role: .cancel) { newGroupName = "" }
             Button("创建") { createGroup() }
         } message: {
-            Text("每组默认容量为 \(settings.defaultGroupCapacity) 个单词，可在设置中修改。")
+            Text("每组默认容量为 \(settings.defaultGroupCapacity) 个词条，可在设置中修改。")
         }
         .alert(
             "重命名分组",
@@ -147,7 +147,7 @@ struct ContentView: View {
     private var sidebar: some View {
         List(selection: $selection) {
             Section("词库") {
-                Label("全部单词", systemImage: "books.vertical")
+                Label("全部词条", systemImage: "books.vertical")
                     .badge(allWords.count)
                     .tag(SidebarSelection.all)
 
@@ -246,7 +246,7 @@ struct ContentView: View {
 
     private var detailTitle: String {
         switch selection {
-        case .all: return "全部单词"
+        case .all: return "全部词条"
         case .ungrouped: return "未分组"
         case .group(let id):
             return groups.first { $0.uuid == id }?.name ?? "分组"
@@ -258,7 +258,7 @@ struct ContentView: View {
             Button {
                 showAddSheet = true
             } label: {
-                Label("添加单词", systemImage: "plus")
+                Label("添加词条", systemImage: "plus")
             }
             .keyboardShortcut("n", modifiers: [.command])
 
@@ -322,7 +322,7 @@ struct ContentView: View {
 
             Spacer()
 
-            Text("\(visibleWords.count) 个单词")
+            Text("\(visibleWords.count) 个词条")
                 .foregroundStyle(.secondary)
                 .font(.callout.weight(.medium))
                 .padding(.horizontal, 10)
@@ -353,7 +353,7 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
             HStack(spacing: 12) {
-                Button("添加单词") { showAddSheet = true }
+                Button("添加词条") { showAddSheet = true }
                     .buttonStyle(PrimaryActionButtonStyle())
                 Button("批量导入") { showBatchSheet = true }
                     .buttonStyle(.bordered)
@@ -365,17 +365,17 @@ struct ContentView: View {
     }
 
     private var emptyTitle: String {
-        if !searchText.isEmpty { return "没有匹配的单词" }
+        if !searchText.isEmpty { return "没有匹配的词条" }
         switch selection {
         case .all: return "词库还是空的"
-        case .ungrouped: return "没有未分组单词"
-        case .group: return "这个分组还没有单词"
+        case .ungrouped: return "没有未分组词条"
+        case .group: return "这个分组还没有词条"
         }
     }
 
     private var emptyDescription: String {
         if !searchText.isEmpty { return "试试其他关键词，或清空搜索。" }
-        return "先添加几个英文单词。系统会自动查询音标与中文，并可一键听发音。同一单词可加入多个分组。"
+        return "先添加几个英文单词或短语。系统会自动查询音标与中文，并可一键听发音。同一词条可加入多个分组。"
     }
 
     private var wordTable: some View {

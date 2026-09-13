@@ -1,6 +1,7 @@
 import Foundation
 
-/// Flexible Chinese-answer checking for vocabulary drills.
+/// Chinese-answer checking for vocabulary drills.
+/// A reply is correct only when it matches a complete sense (not a fragment).
 enum QuizAnswerMatcher {
     struct Judgment: Equatable {
         var isCorrect: Bool
@@ -17,21 +18,17 @@ enum QuizAnswerMatcher {
             return Judgment(isCorrect: false, matchedSense: nil)
         }
 
-        let senseList = senses(from: expected)
-        for sense in senseList {
+        // Accept any one *complete* sense after normalization.
+        // Substring / partial-core matches (e.g. "使" for "使尴尬", "弹性" for "有弹性的") are rejected.
+        for sense in senses(from: expected) {
             if user == sense {
-                return Judgment(isCorrect: true, matchedSense: sense)
-            }
-            if sense.count >= 2, user.count >= 2, sense.contains(user) || user.contains(sense) {
                 return Judgment(isCorrect: true, matchedSense: sense)
             }
         }
 
         let whole = normalize(expected)
-        if !whole.isEmpty {
-            if user == whole || (whole.count >= 2 && (whole.contains(user) || user.contains(whole))) {
-                return Judgment(isCorrect: true, matchedSense: whole)
-            }
+        if !whole.isEmpty, user == whole {
+            return Judgment(isCorrect: true, matchedSense: whole)
         }
         return Judgment(isCorrect: false, matchedSense: nil)
     }

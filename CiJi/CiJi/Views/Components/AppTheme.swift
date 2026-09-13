@@ -3,19 +3,23 @@ import SwiftUI
 import AppKit
 #endif
 
-/// Visual language for 词笺 — ink teal + jade, literary but calm.
+/// Visual language for 词笺 — bright paper + soft jade (light-first).
 enum AppTheme {
     static let brandName = "词笺"
     static let brandSubtitle = "英语词库 · 听写练习"
 
-    /// Deep ink teal
-    static let ink = Color(red: 0.09, green: 0.22, blue: 0.27)
-    /// Soft jade accent
-    static let jade = Color(red: 0.18, green: 0.56, blue: 0.49)
-    /// Warm mist for soft fills
-    static let mist = Color(red: 0.93, green: 0.95, blue: 0.94)
+    /// Soft ink for primary text
+    static let ink = Color(red: 0.20, green: 0.33, blue: 0.36)
+    /// Fresh jade accent
+    static let jade = Color(red: 0.22, green: 0.62, blue: 0.54)
+    /// Bright paper / mist fills
+    static let mist = Color(red: 0.97, green: 0.98, blue: 0.97)
     /// Soft coral for wrong/error emphasis (not loud red)
-    static let coral = Color(red: 0.78, green: 0.33, blue: 0.31)
+    static let coral = Color(red: 0.82, green: 0.38, blue: 0.34)
+    /// Pure panel surface
+    static let paper = Color(red: 1.0, green: 1.0, blue: 0.995)
+    /// Subtle wash behind the window
+    static let canvas = Color(red: 0.94, green: 0.97, blue: 0.96)
 
     static var brandTitleFont: Font {
         .system(.title2, design: .serif).weight(.semibold)
@@ -41,17 +45,21 @@ enum AppTheme {
 /// Soft atmospheric background used behind main panels.
 struct AppAtmosphereBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                AppTheme.mist.opacity(0.55),
-                Color.clear,
-                AppTheme.jade.opacity(0.06),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        ZStack {
+            AppTheme.canvas
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.85),
+                    AppTheme.mist.opacity(0.35),
+                    AppTheme.jade.opacity(0.08),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
         .ignoresSafeArea()
     }
+
 }
 
 struct BrandMark: View {
@@ -63,7 +71,7 @@ struct BrandMark: View {
                 RoundedRectangle(cornerRadius: compact ? 7 : 9, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [AppTheme.ink, AppTheme.jade],
+                            colors: [AppTheme.jade.opacity(0.92), AppTheme.jade.opacity(0.75)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -102,12 +110,12 @@ struct SoftPanelStyle: GroupBoxStyle {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.background.opacity(0.72))
-                .shadow(color: AppTheme.ink.opacity(0.06), radius: 8, y: 2)
+                .fill(AppTheme.paper.opacity(0.94))
+                .shadow(color: AppTheme.ink.opacity(0.05), radius: 10, y: 2)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(AppTheme.jade.opacity(0.14), lineWidth: 1)
+                .strokeBorder(AppTheme.jade.opacity(0.16), lineWidth: 1)
         )
     }
 }
