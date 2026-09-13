@@ -97,13 +97,43 @@ enum EnglishLemmatizer {
             push(stem)
             push(stem + "e")
         }
-        // -ly adverb → adjective (rough)
-        if word.hasSuffix("ly"), word.count > 4 {
-            push(String(word.dropLast(2)))
+        // -ly adverb → adjective (ordered from specific → general)
+        // Never do a bare drop of "ly" alone for "-bly" (humbly → humb is wrong; need humble).
+        if word.hasSuffix("ly"), word.count > 4, !lyHeadwords.contains(word) {
+            if word.hasSuffix("ily"), word.count > 5 {
+                // happily → happy, easily → easy
+                push(String(word.dropLast(3)) + "y")
+            } else if word.hasSuffix("bly"), word.count > 5 {
+                // humbly → humble, possibly → possible, terribly → terrible
+                push(String(word.dropLast(1)) + "e")
+            } else if word.hasSuffix("mply"), word.count > 5 {
+                // simply → simple (supply/apply are in lyHeadwords)
+                push(String(word.dropLast(1)) + "e")
+            } else if word.hasSuffix("uly"), word.count > 5 {
+                // truly → true, duly → due
+                push(String(word.dropLast(2)) + "e")
+            } else {
+                // quickly → quick, slowly → slow, nicely → nice
+                let stem = String(word.dropLast(2))
+                push(stem)
+                if stem.count >= 3, !stem.hasSuffix("e") {
+                    push(stem + "e")
+                }
+            }
         }
 
         return list
     }
+
+    /// Words that end in "ly" but are already dictionary headwords (not adverb inflections).
+    private static let lyHeadwords: Set<String> = [
+        "family", "assembly", "supply", "apply", "reply", "imply", "comply", "multiply",
+        "only", "early", "weekly", "monthly", "yearly", "daily", "hourly",
+        "lovely", "lonely", "likely", "ugly", "silly", "holy", "jolly", "deadly", "lively",
+        "friendly", "costly", "elderly", "scholarly",
+        "italy", "lily", "jelly", "belly", "alley", "valley", "volley", "trolley", "pulley",
+        "butterfly", "dragonfly", "firefly", "melancholy", "anomaly",
+    ]
 
     /// Common irregular verbs / plurals for vocabulary apps.
     /// Built from pairs (last write wins) so a duplicate key never crashes at launch.
@@ -179,6 +209,11 @@ enum EnglishLemmatizer {
             ("wore", "wear"), ("wears", "wear"), ("worn", "wear"), ("wearing", "wear"),
             ("won", "win"), ("wins", "win"), ("winning", "win"),
             ("wrote", "write"), ("writes", "write"), ("written", "write"), ("writing", "write"),
+            // -ly adverbs that need a vowel restored (not a bare strip of "ly")
+            ("humbly", "humble"), ("simply", "simple"), ("gently", "gentle"),
+            ("subtly", "subtle"), ("nobly", "noble"), ("idly", "idle"),
+            ("truly", "true"), ("duly", "due"), ("wholly", "whole"),
+            ("possibly", "possible"), ("probably", "probable"), ("terribly", "terrible"),
             // adjectives
             ("better", "good"), ("best", "good"),
             ("worse", "bad"), ("worst", "bad"),

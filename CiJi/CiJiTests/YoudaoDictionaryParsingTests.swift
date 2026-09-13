@@ -22,6 +22,17 @@ struct EnglishLemmatizerTests {
     @Test func alreadyLemmaUnchanged() {
         #expect(EnglishLemmatizer.lemma(for: "apple") == "apple")
         #expect(EnglishLemmatizer.lemma(for: "vocabulary") == "vocabulary")
+        #expect(EnglishLemmatizer.lemma(for: "family") == "family")
+    }
+
+    @Test func lyAdverbsRestoreBaseAdjective() {
+        // Regression: bare strip of "ly" turned "humbly" into "humb".
+        #expect(EnglishLemmatizer.lemma(for: "humbly") == "humble")
+        #expect(EnglishLemmatizer.lemma(for: "simply") == "simple")
+        #expect(EnglishLemmatizer.lemma(for: "happily") == "happy")
+        #expect(EnglishLemmatizer.lemma(for: "possibly") == "possible")
+        #expect(EnglishLemmatizer.lemma(for: "truly") == "true")
+        #expect(EnglishLemmatizer.lemma(for: "quickly") == "quick")
     }
 }
 
