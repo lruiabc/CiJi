@@ -283,6 +283,7 @@ final class QuizSession: ObservableObject {
         var words = sourceWords(for: scope, allWords: allWords, groups: groups)
             .filter { !$0.chinese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         words.sort {
+            if $0.sortOrder != $1.sortOrder { return $0.sortOrder < $1.sortOrder }
             if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
             return $0.english < $1.english
         }

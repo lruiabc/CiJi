@@ -14,6 +14,7 @@
 - **短语支持**：可添加 / 导入多词短语（如 `look forward to`）
 - **严格中文判分**：练习须写出完整义项；只写片段（如「使」对「使尴尬」）不算对
 - **亮色界面**：浅色纸感 + 青绿点缀为主
+- **输入顺序**：词库按用户添加/导入顺序保存与展示，不会被自动重排
 - **有道词典**：公开网页接口，用户无需申请密钥；失败可回退本地示例
 
 ## 品牌
@@ -112,7 +113,7 @@ CiJi/
 
 ## 上架 Mac App Store（美国 · 免费）
 
-工程已准备为 **Version 1.0.0 / Build 5**。云端无法替你上传，请在自己的 Mac 上完成：
+工程已准备为 **Version 1.0.0 / Build 6**。云端无法替你上传，请在自己的 Mac 上完成：
 
 ### A. Xcode 打包上传
 1. `git pull` 后打开 `CiJi/CiJi.xcodeproj`
@@ -121,7 +122,7 @@ CiJi/
    - 勾选 Automatically manage signing
    - **Team** 选你的 Apple Developer 账号
 4. 确认 Capabilities：App Sandbox、Outgoing Connections（Client）
-5. **Product → Clean Build Folder**，再 **Product → Archive**（不要用旧 Archive；请上传 Build 5（勿再用已拒的旧构建））
+5. **Product → Clean Build Folder**，再 **Product → Archive**（不要用旧 Archive；请上传 Build 6（勿再用已拒的旧构建））
 6. 上传前可本机校验图标（把路径换成你的 `.app`）：
 
 ```bash

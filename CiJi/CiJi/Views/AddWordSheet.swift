@@ -210,10 +210,12 @@ struct AddWordSheet: View {
             return
         }
 
+        let nextOrder = (existingWords.map(\.sortOrder).max() ?? -1) + 1
         let word = Word(
             english: preview.english,
             phonetic: preview.phonetic,
             chinese: preview.chinese,
+            sortOrder: nextOrder,
             source: preview.source,
             groups: targetGroups
         )

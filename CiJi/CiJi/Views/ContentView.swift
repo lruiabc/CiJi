@@ -14,7 +14,7 @@ struct ContentView: View {
     @EnvironmentObject private var pronunciation: PronunciationService
 
     @Query(sort: \WordGroup.sortOrder) private var groups: [WordGroup]
-    @Query(sort: \Word.createdAt, order: .reverse) private var allWords: [Word]
+    @Query(sort: [SortDescriptor(\Word.sortOrder), SortDescriptor(\Word.createdAt)]) private var allWords: [Word]
 
     @State private var selection: SidebarSelection = .all
     @State private var searchText = ""
@@ -241,6 +241,7 @@ struct ContentView: View {
             }
         }
         .navigationTitle(detailTitle)
+        .onAppear { backfillWordSortOrdersIfNeeded() }
         .searchable(text: $searchText, prompt: "搜索英文 / 中文 / 音标")
     }
 
@@ -474,6 +475,23 @@ struct ContentView: View {
 
     private func nextDefaultGroupName() -> String {
         "第\(groups.count + 1)组"
+    }
+
+    
+    /// Legacy rows may all have sortOrder == 0; reassign by createdAt so list order stays stable.
+    private func backfillWordSortOrdersIfNeeded() {
+        guard !allWords.isEmpty else { return }
+        let orders = Set(allWords.map(\.sortOrder))
+        // Only rewrite when ordering metadata is missing / collapsed.
+        guard orders == [0] || orders.count == 1 else { return }
+        let ordered = allWords.sorted {
+            if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+            return $0.english < $1.english
+        }
+        for (idx, word) in ordered.enumerated() {
+            if word.sortOrder != idx { word.sortOrder = idx }
+        }
+        try? modelContext.save()
     }
 
     private func createGroup() {

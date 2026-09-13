@@ -8,7 +8,7 @@ struct QuizView: View {
     @EnvironmentObject private var pronunciation: PronunciationService
 
     @Query(sort: \WordGroup.sortOrder) private var groups: [WordGroup]
-    @Query(sort: \Word.createdAt, order: .forward) private var allWords: [Word]
+    @Query(sort: [SortDescriptor(\Word.sortOrder), SortDescriptor(\Word.createdAt)]) private var allWords: [Word]
 
     @StateObject private var session = QuizSession()
     @State private var setupError: String?

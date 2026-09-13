@@ -79,7 +79,7 @@ struct BatchImportSheet: View {
             .alert("导入完成", isPresented: $didSave) {
                 Button("好") { dismiss() }
             } message: {
-                Text(statusMessage ?? "词条已加入词库。")
+                Text(statusMessage ?? "单词已加入词库。")
             }
         }
         .frame(minWidth: 780, minHeight: 560)
@@ -326,3 +326,132 @@ struct BatchImportSheet: View {
                 built.append(draft)
             }
         }
+
+        drafts = built
+        bulkSelection = defaultGroupSelection
+        let fetchIndices = built.indices // look up all, including existing (refresh gloss)
+        progressTotal = fetchIndices.count
+        progressDone = 0
+        isLookingUp = true
+
+        batchLog.info("Batch start: \(built.count) drafts")
+        AppLog.console(
+            "开始批量查询 \(fetchIndices.count) 个单词（并发 \(maxConcurrentLookups)）",
+            category: "BatchImport"
+        )
+
+        let service = YoudaoDictionaryService(allowMockFallback: settings.useMockOnFailure)
+
+        var offset = 0
+        while offset < fetchIndices.count {
+            if Task.isCancelled { break }
+            let end = min(offset + maxConcurrentLookups, fetchIndices.count)
+            let chunk = Array(fetchIndices[offset..<end])
+
+            for index in chunk {
+                drafts[index].status = .loading
+            }
+
+            await withTaskGroup(of: (Int, Result<DictionaryLookupResult, Error>).self) { group in
+                for index in chunk {
+                    let word = drafts[index].english
+                    group.addTask {
+                        do {
+                            let result = try await service.lookup(word: word)
+                            return (index, .success(result))
+                        } catch {
+                            return (index, .failure(error))
+                        }
+                    }
+                }
+
+                for await (index, result) in group {
+                    if Task.isCancelled { break }
+                    switch result {
+                    case .success(let lookup):
+                        drafts[index].english = lookup.english
+                        drafts[index].phonetic = lookup.phonetic
+                        drafts[index].chinese = lookup.chinese
+                        drafts[index].source = lookup.source
+                        drafts[index].status = .ready
+                        if drafts[index].alreadyExists {
+                            drafts[index].message = "词库已有，将追加所选分组"
+                        } else if lookup.wasLemmatized, let inputForm = lookup.inputForm {
+                            drafts[index].message = "由 \(inputForm) 还原"
+                        }
+                    case .failure(let error):
+                        if drafts[index].alreadyExists {
+                            drafts[index].status = .ready
+                            drafts[index].message = "词库已有（刷新释义失败）：仍可追加分组"
+                        } else {
+                            drafts[index].status = .failed
+                            drafts[index].message = error.localizedDescription
+                            batchLog.error(
+                                "Fail \(drafts[index].english, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            )
+                        }
+                    }
+                    progressDone += 1
+                }
+            }
+
+            offset = end
+        }
+
+        isLookingUp = false
+        lookupTask = nil
+        batchLog.info("Batch finished: ready=\(self.savableCount) failed=\(self.failedCount)")
+        AppLog.console(
+            "批量查询结束：可写入 \(savableCount)，失败 \(failedCount)",
+            category: "BatchImport"
+        )
+    }
+
+    private func commit() {
+        var created = 0
+        var merged = 0
+        let existingByEnglish = Dictionary(uniqueKeysWithValues: existingWords.map { ($0.english, $0) })
+        // Preserve the user's input order via monotonic sortOrder.
+        var nextOrder = (existingWords.map(\.sortOrder).max() ?? -1) + 1
+
+        for draft in drafts where draft.status == .ready {
+            let targetGroups = draft.groupSelection.resolve(from: groups)
+            let key = draft.english.lowercased()
+            if let existing = existingByEnglish[key] {
+                for group in targetGroups {
+                    existing.addToGroup(group)
+                }
+                if existing.phonetic.isEmpty, !draft.phonetic.isEmpty {
+                    existing.phonetic = draft.phonetic
+                }
+                if existing.chinese.isEmpty, !draft.chinese.isEmpty {
+                    existing.chinese = draft.chinese
+                }
+                merged += 1
+                AppLog.console(
+                    "追加 \(draft.english) → \(draft.groupSelection.summary(from: groups))",
+                    category: "BatchImport"
+                )
+            } else {
+                let word = Word(
+                    english: draft.english,
+                    phonetic: draft.phonetic,
+                    chinese: draft.chinese,
+                    sortOrder: nextOrder,
+                    source: draft.source.isEmpty ? "youdao" : draft.source,
+                    groups: targetGroups
+                )
+                nextOrder += 1
+                modelContext.insert(word)
+                created += 1
+                AppLog.console(
+                    "新建 \(draft.english) → \(draft.groupSelection.summary(from: groups))，中文=\(draft.chinese)",
+                    category: "BatchImport"
+                )
+            }
+        }
+        try? modelContext.save()
+        statusMessage = "新建 \(created) 个，追加分组 \(merged) 个。"
+        didSave = true
+    }
+}
